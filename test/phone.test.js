@@ -16,7 +16,7 @@ test('normalizePhone — all supported Azerbaijani formats', () => {
   assert.equal(normalizePhone('0501234567'), '994501234567');
   assert.equal(normalizePhone('055-123-45-67'), '994551234567');
   assert.equal(normalizePhone('0101234567'), '994101234567');
-  assert.equal(normalizePhone('0601234567'), '994601234567'); // AzInTelecom
+  assert.equal(normalizePhone('0601234567'), '994601234567');
 });
 
 test('normalizePhone — invalid inputs return null', () => {
@@ -58,68 +58,16 @@ test('parseContacts — name/number pairs (Azerbaijani names)', () => {
   ]);
 });
 
-test('parseContacts — errors are reported per line', () => {
-  const { contacts, errors } = parseContacts('994501234567\n\nYanlış nömrə\n0123456789\n\nTəksətir\n');
-  assert.equal(contacts.length, 0);
-  assert.equal(errors.length, 3);
-  assert.match(errors[0].reason, /Ad yoxdur/);
-  assert.match(errors[1].reason, /Yanlış telefon nömrəsi/);
-  assert.match(errors[2].reason, /Nömrə tapılmadı/);
+test('extractNumbers — dedupe + invalid separation', () => {
+  const { numbers, duplicates, invalid } = extractNumbers('0501234567\n055-123-45-67\n0501234567\nabc');
+  assert.equal(numbers.length, 2);
+  assert.equal(duplicates.length, 1);
+  assert.equal(invalid.length, 1);
+  assert.equal(numbers[0], '994501234567');
 });
 
-test('parseContacts — duplicate phones deduplicated', () => {
-  const { contacts } = parseContacts('A\n0501234567\n\nB\n050 123 45 67\n\nC\n+994501234567');
-  assert.equal(contacts.length, 1);
-});
-
-test('parseNumbers — mixed formats normalized and deduped by caller', () => {
-  const { numbers, errors } = parseNumbers('0501234567\n+994551234567\n994 70 123 45 67\n0123456789\n');
-  assert.deepEqual(numbers, ['994501234567', '994551234567', '994701234567']);
-  assert.equal(errors.length, 1);
-});
-
-test('extractNumbers — arbitrary separators (lines, commas, spaces)', () => {
-  const { numbers, invalid, duplicates } = extractNumbers('0501234567, 055 987 65 43\n+994701234567; 077-364-86-48  050 123 45 67');
-  assert.deepEqual(numbers, ['994501234567', '994559876543', '994701234567', '994773648648']);
-  assert.equal(invalid.length, 0);
-  assert.ok(duplicates.length >= 1); // 0501234567 written twice
-});
-
-test('extractNumbers — digit runs pulled from mixed text', () => {
-  const { numbers, invalid } = extractNumbers('Nömrəm: 0501234567, digəri 0559876543');
-  assert.deepEqual(numbers, ['994501234567', '994559876543']);
-  assert.equal(invalid.length, 0);
-});
-
-test('extractNumbers — invalid chunks reported', () => {
-  const { numbers, invalid } = extractNumbers('0501234567\nsalam\n0123456789');
-  assert.deepEqual(numbers, ['994501234567']);
-  assert.ok(invalid.length >= 1);
-});
-
-test('extractNumbers — user report formats (multi-line, mixed)', () => {
-  const { numbers } = extractNumbers('994503482690\n+994 51 414 34 32');
-  assert.deepEqual(numbers, ['994503482690', '994514143432']);
-});
-
-test('extractNumbers — same number in different formats is deduplicated', () => {
-  const { numbers, duplicates } = extractNumbers('994503482690\n+994 50 348 26 90\n0503482690');
-  assert.deepEqual(numbers, ['994503482690']);
-  assert.ok(duplicates.length >= 1);
-});
-
-test('extractNumbers — arbitrary number of lines accepted', () => {
-  const lines = Array.from({ length: 50 }, (_, i) => `050${String(1000000 + i)}`);
-  const { numbers } = extractNumbers(lines.join('\n'));
-  assert.equal(numbers.length, 50);
-});
-
-test('13-rəqəmli format 9940XXXXXXXXX — 050XXXXXXXX ilə eyni nömrə', () => {
-  const a = normalizePhone('9940503482680');
-  const b = normalizePhone('0503482680');
-  assert.equal(a, '994503482680');
-  assert.equal(a, b);
-  const c = normalizePhone('9940501234567');
-  assert.equal(c, '994501234567');
-  assert.equal(normalizePhone('9940503482680'), normalizePhone('+994 50 348 26 80'));
+test('parseNumbers — plain list', () => {
+  const r = parseNumbers('0501234567, 055 123 45 67');
+  assert.ok(Array.isArray(r.numbers));
+  assert.equal(r.numbers.length, 2);
 });

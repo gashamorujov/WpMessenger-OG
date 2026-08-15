@@ -1,16 +1,19 @@
 version: '3.8'
 
 services:
-  whatsapp-bot:
+  wp-messenger-og:
     build: .
-    container_name: whatsapp-bulk-bot
+    container_name: wp-messenger-og
     restart: unless-stopped
     ports:
       - "3000:3000"
+    environment:
+      - PORT=3000
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - DATA_DIR=/app/data
+      - SESSION_PATH=/app/sessions
+      - DATABASE_URL=/app/data/app.db
     volumes:
-      # Bind-mount source so auto-update (git pull) works in realtime
-      - .:/app
-      - /app/node_modules
-      - ./sessions:/app/sessions
-      - ./temp:/app/temp
       - ./data:/app/data
+      - ./sessions:/app/sessions

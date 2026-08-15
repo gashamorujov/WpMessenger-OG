@@ -1,11 +1,11 @@
 /**
- * Central configuration.
+ * Central configuration — WpMessenger OG.
  *
- * BÜTÜN gizli məlumatlar (TELEGRAM_TOKEN və s.) YALNIZ environment
- * variable-larından götürülür — heç nə hard-code edilmir. Token yoxdursa
- * bot başlamır (index.js yoxlayır).
+ * All secrets are read from environment variables only; nothing is
+ * hard-coded. If ADMIN_PASSWORD is not provided, a random password is
+ * generated on first boot and printed to the logs once.
  */
-const token = process.env.TELEGRAM_TOKEN || '';
+const path = require('path');
 
 function intEnv(name, fallback) {
   const v = parseInt(process.env[name], 10);
@@ -18,13 +18,30 @@ function boolEnv(name, fallback) {
   return v !== 'false' && v !== '0';
 }
 
+const ROOT = __dirname;
+
 const settings = {
-  telegramToken: token,
-  pairNumber: process.env.PAIR_NUMBER || '',
+  root: ROOT,
+
+  // Web panel authentication
+  adminUsername: process.env.ADMIN_USERNAME || 'admin',
+  adminPassword: process.env.ADMIN_PASSWORD || '',
+
+  // Persistence
+  dataDir: process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, 'data'),
+  sessionDir: process.env.SESSION_PATH ? path.resolve(process.env.SESSION_PATH) : path.join(ROOT, 'sessions'),
+  dbFile: process.env.DATABASE_URL && process.env.DATABASE_URL.startsWith('file:')
+    ? process.env.DATABASE_URL.slice(5)
+    : process.env.DATABASE_URL || path.join(ROOT, 'data', 'app.db'),
+
+  // HTTP / WebSocket
+  port: intEnv('PORT', 3000),
+  frontendUrl: process.env.FRONTEND_URL || '',
+  apiUrl: process.env.API_URL || '',
+  wsUrl: process.env.WS_URL || '',
 
   // WhatsApp registration pre-check (sock.onWhatsApp USync query)
   waPresenceCheck: boolEnv('WA_PRESENCE_CHECK', true),
-  // Skip numbers known not to be on WhatsApp instead of trying to send
   waSkipUnregistered: boolEnv('WA_SKIP_UNREGISTERED', true),
 
   // Broadcast pacing (per-target random delay between sends)
@@ -34,9 +51,20 @@ const settings = {
 
   // Cross-job duplicate-send guard TTL (minutes; 0 disables)
   duplicateSendTtlMin: intEnv('DUPLICATE_SEND_TTL_MIN', 10),
+
+  // Safety limits
+  maxRecipients: intEnv('MAX_RECIPIENTS', 10000),
+  maxMessageLength: intEnv('MAX_MESSAGE_LENGTH', 100000),
+
+  // Rate limiting (per IP, fixed window)
+  rateLimitWindowMs: intEnv('RATE_LIMIT_WINDOW_MS', 60000),
+  rateLimitMax: intEnv('RATE_LIMIT_MAX', 240),
+
+  // Session cookie name
+  cookieName: 'wpm_session',
 };
 
-settings.version = '6.0.0';
-settings.repo = 'gashamorujov/WpFastMesenger-v6';
+settings.version = '7.0.0';
+settings.repo = 'WpMessenger-OG/WpMessenger-OG';
 
 module.exports = settings;

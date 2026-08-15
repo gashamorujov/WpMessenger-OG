@@ -1,176 +1,185 @@
-# WpFastMesenger — WhatsApp Automation Bot (v5)
+# WpMessenger OG — WhatsApp Web Management Panel
 
-Telegram üzərindən idarə olunan, **WhatsApp kontaktlarına kontakt əlavə etmə** və **toplu mesaj** sistemi.
+Telegram bot deyil — **tam web tətbiq**. Sayta daxil ol → WhatsApp hesabını QR və ya Pair Code ilə qoş → kontaktları saxla → istənilən nömrəyə mesaj/media göndər → real-time progressi izlə → tarixçəyə bax.
 
-> Arxa plan: bu layihə Android tətbiqi deyil, Node.js (Baileys) əsaslı **Telegram-ilə-idarə olunan WhatsApp botudur**. Bütün əmrlər Telegram-da yazılır, icra WhatsApp hesabında (rəsmi Linked Devices / WhatsApp Web protokolu üzərində) baş verir.
+Bu layihə `WpFastMesenger-v6` (Telegram-ilə-idarə olunan WhatsApp botu) əsasında tam yenidən qurulub: Telegram idarəetməsi web panelə köçürülüb, bütün əsas funksiyalar qorunub və professional REST API + WebSocket arxitekturasına keçirilib.
 
-## 🚀 Deploy
+---
+
+## ✨ Xüsusiyyətlər
+
+- 🔐 **Auth** — scrypt parol hash, persistent token session, rate limiting, input validation
+- 📱 **WhatsApp qoşulma** — QR Code və ya Pair Code; session persistence (server restartda yenidən qoşulma tələb olunmur)
+- 👥 **Kontakt sistemi** — SQLite (persistent), Azərbaycan nömrə normalizasiyası, duplicate qorunması
+  - `0503482680`, `9940503482680`, `+994503482680` → eyni kontakt
+  - Kontakt yaradılanda WhatsApp kontaktlarına avtomatik əlavə olunur (Linked Devices contactAction)
+  - WhatsApp qeydiyyat statusu (USync `onWhatsApp`) avtomatik yoxlanılır
+- ✉️ **Mesaj göndərmə** — mətn, şəkil, video, audio, səs, sənəd, PDF, fayl
+  - Alıcı seçimi: bir nömrə / siyahı / kontaktlardan / bütün kontaktlar
+  - Göndərmədən əvvəl **Preview** mərhələsi
+  - Canlı **progress** (WebSocket): done/total, uğurlu/xəta/atlanan, faiz barı
+  - 🛑 Dayandır düyməsi — queue düzgün bağlanır, bərpa olunmur
+  - Bir nömrədə xəta bütün göndərişi dayandırmır
+- 📦 **Job sistemi** — persistent jobs (SQLite), crash-recovery (interrupted → avtomatik resume), failed retry, ACK tracking, duplicate-send guard
+- 🕘 **Tarixçə** — hər göndəriş üçün tarix, alıcı sayı, mesaj, uğur/xəta, ətraflı baxış + uğursuzları təkrar göndər
+- ⚡ **Real-time** — WebSocket (`/ws`) ilə WhatsApp status, QR, Pair Code, göndərmə progressi, aktiv job statusu səhifəni refresh etmədən yenilənir
+- 🎨 **Modern UI/UX** — tam responsive; desktop sidebar, mobil bottom navigation, dark/light mode
+- 🚀 **Deploy** — VPS / Railway / Render / Fly.io / Docker; frontend Vercel / Netlify / Cloudflare Pages
+
+---
+
+## 🏗 Arxitektura
+
+```
+frontend/            statik SPA (vanilla JS — build tələb olunmur)
+  index.html
+  css/styles.css
+  js/app.js
+  vercel.json / netlify.toml
+
+index.js             server bootstrap (Express + WebSocket + static)
+server/
+  whatsappManager.js Baileys socket lifecycle (QR/Pair, reconnect, watchdog)
+  broadcastService.js global serialized queue, progress, resume, cancel
+  webSocketHub.js    realtime push (ws)
+  auth.js            login, scrypt, sessions
+  routes.js          REST API
+db/
+  index.js           SQLite + migration sistemi (PRAGMA user_version)
+  contacts.js        kontaktlar
+  jobs.js            göndəriş işləri / tarixçə
+  sessions.js        auth tokenlər
+  appSettings.js     panel settings
+lib/
+  phone.js / azPhone.js  nömrə normalizasiyası (Azərbaycan)
+  broadcast.js       real WhatsApp göndərmə mühərriki
+  queue.js           FIFO worker (rate-limit)
+  waPresence.js      onWhatsApp yoxlaması + kontakt əlavə etmə
+  recentSends.js     duplicate guard
+  rateLimit.js       rate limiting
+```
+
+Frontend heç vaxt WhatsApp socket-ə birbaşa qoşulmur — bütün WhatsApp əməliyyatları backend tərəfindən idarə olunur.
+
+---
+
+## 🚀 Quickstart (lokal)
+
+```bash
+cp .env.example .env      # ADMIN_PASSWORD dəyişdirin
+npm install
+npm start
+```
+
+İlk işə salmada DB avtomatik yaradılır və migration işləyir. `ADMIN_PASSWORD` boşdursa təsadüfi şifrə yaradılır və **loqlarda çap olunur**.
+
+Açın: http://localhost:3000 → login → **WhatsApp-a qoşul** (QR / Pair Code).
+
+---
+
+## ☁️ Deploy
 
 ### Railway
-New Project → Deploy from GitHub → `gashamorujov/WpFastMesenger-v5`
+1. Reponu Railway-ə qoşun (Dockerfile avtomatik istifadə olunur).
+2. Env dəyişənləri: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT` (Railway təyin edir).
+3. Persistent volume əlavə edin: `data` → `/app/data`, `sessions` → `/app/sessions`.
 
-Tələb olunan environment dəyişənləri:
-| Dəyişən | Məcburi | İzah |
-|---|---|---|
-| `TELEGRAM_TOKEN` | ❌ | Telegram bot tokeni — proyektə əlavə edilib, deploy üçün lazım deyil (env dəyişəni üstünlük təşkil edir) |
-| `PORT` | ❌ | HTTP health server portu (default 3000) |
-| `PAIR_NUMBER` | ❌ | İlk açılışda avtomatik qoşulacaq nömrə |
-
-### VPS
+### VPS (Docker)
 ```bash
-curl -sL https://github.com/gashamorujov/WpFastMesenger-v5/raw/main/scripts/deploy-vps.sh | bash
+REPO_URL=https://github.com/YOUR_USER/WpMessenger-OG.git bash scripts/deploy-vps.sh
 ```
+Data `./data` və `./sessions` qovluqlarında persistent saxlanılır.
 
-## 🤖 Əmrlər
+### Render / Fly.io
+- Persistent disk `data` və `sessions` qovluqlarına mount edin.
+- `npm start` ilə işlədilir (`node index.js`).
 
-| Əmr | Funksiya |
-|---|---|
-| `/start` | Banner + əsas menyu (📒 Kontaktlar • 📇 Kontakt Əlavə Et • 📨 Toplu Mesaj • 📲 Qoşul) |
-| `.gg` / `/qeydiyyat` | WhatsApp-a qoşulma (🔐 Pair Code), 🔄 Reconnect, 🚪 Çıxış |
-| `.rr` | Kontakt əlavə etmə (WhatsApp kontaktlarına) |
-| `.ss` | Toplu mesaj göndərmə (nömrələr → mesaj → təsdiq → 🚀 Göndər) |
-| `.cc` | İstənilən mərhələdə ləğv |
+### Frontend ayrıca (Vercel / Netlify)
+WhatsApp WebSocket/session daimi işləyən Node server tələb edir — serverless frontend-də backend işlədə bilməz. Buna görə:
 
-### 📇 `.rr` — Kontakt əlavə etmə
+- **Frontend**: `frontend/` qovluğunu Vercel/Netlify-ə deploy edin (fayllar statikdir).
+- **Backend**: Railway/VPS-də işləsin.
+- `.env`-də `FRONTEND_URL`, `API_URL`, `WS_URL` ilə əlaqələndirin.
 
-1. `.rr` yazın → format göstərilir.
-2. Kontaktları göndərin (Ad və nömrə cüt-cüt):
-   ```
-   Quliyev Cəmil Bayram
-   0503767264
+---
 
-   Akif Babayev
-   077 364 86 48
+## 🔐 Təhlükəsizlik
 
-   Əli Məmmədov +994551234567
-   ```
-3. Hər kontakt:
-   - **Yoxlanılır** (Azərbaycan mobil nömrə formatı) — yanlış sətirlər ayrıca bildirilir;
-   - **Deduplicate edilir** — eyni nömrə müxtəlif formatda daxil edilsə də bir dəfə yazılır; mövcud kontakt varsa *duplicate yaradılmır*, ad yenilənir;
-   - **WhatsApp kontaktlarına əlavə olunur** — rəsmi Linked Devices `contactAction` sinxronizasiyası ilə (`sock.addOrEditContact`, yalnız WhatsApp kontaktlarında — telefonun adi kontakt kitabçasına **yazılmır**);
-   - **Daxili bazada saxlanılır** (`data/contacts.json`) — `.ss` kontakt seçicisinin mənbəyi budur;
-   - WhatsApp qeydiyyatı yoxlanılır (USync `onWhatsApp` — yalnız server təsdiqi).
-4. WhatsApp bağlantısı yoxdursa kontakt yenə də daxili bazada saxlanılır (proses heç vaxt çökmür).
-5. Sonda hesabat: WhatsApp-a əlavə edilənlər / yenilənənlər / duplikatlar / yalnız daxili saxlanılanlar / xətalar / WhatsApp-da olmayanlar.
+- Login + token session (httpOnly cookie + Authorization header)
+- Parollar scrypt ilə hashlənir (heç vaxt düz mətndə saxlanılmır)
+- Rate limiting (login: 10/dəq/IP; API: 240/dəq/IP)
+- Input validation (nömrə formatı, ad uzunluğu, mesaj uzunluğu, max alıcı)
+- Nömrə məlumatları və session məlumatları yalnız autentifikasiya olunmuş istifadəçiyə verilir
+- Heç bir secret repo-da saxlanılmır — yalnız environment variables
 
-### 📒 Kontaktlar (daxili baza)
+---
 
-`/start` menyusundakı **📒 Kontaktlar** düyməsi botun daxili kontakt bazasını açır (`data/contacts.json`). Səhifələnmiş siyahıda hər kontakta toxunmaqla:
+## 📡 API Endpoints
 
-- **👁 Məlumat** — WhatsApp statusu, əlavə/ yenilənmə tarixi;
-- **✏️ Ad** — kontaktın adını dəyiş;
-- **🔢 Nömrə** — kontaktın nömrəsini dəyiş (duplicate qorunur);
-- **🗑 Sil** — kontaktı bazadan sil.
-
-### 📨 `.ss` — Toplu mesaj
-
-1. `.ss` yazın → **📱 Nömrələri daxil edin** (nömrələr alt-alta göstərilir).
-2. Nömrələri **hər sətirə bir nömrə** olmaqla daxil edin — hər sətir ayrıca WhatsApp recipientidir (1, 10, 50, 100+; limit yoxdur). Vergül/boşluq ayırıcıları da dəstəklənir. Hər sətir normalizə olunur (`994XXXXXXXXX`), duplicate-lər atlanır, yanlış sətirlər ayrıca bildirilir (yalnız Azərbaycan mobil nömrələri).
-3. Mesajı göndərin: mətn, şəkil, video, səs, stiker, GIF, fayl, PDF, caption-lı media — format dəyişdirilmir. Bu mərhələdə yenidən nömrə yazsanız siyahıya **əlavə olunur**.
-4. Təsdiq ekranı: **📨 Hazırdır** (nömrələr alt-alta) → **[🚀 Göndər]** tam genişlikdə, altında **[✖️ Geri]**. Göndərmə başlayan kimi eyni mesaj canlı progress olur və tam genişlikdə **🛑 Göndərişi Dayandır** düyməsi görünür (yalnız aktiv göndəriş zamanı).
-5. Göndəriş **persistent job** kimi işləyir (`data/jobs/`):
-   - ardıcıl (queue), təsadüfi gecikmələrlə (WhatsApp limitlərinə uyğun);
-   - hər nömrə üçün status: `göndərildi / xəta / atlandı / gözləyir`;
-   - canlı **progress** — eyni Telegram mesajı yenilənir; **🛑 Dayandır** yalnız göndəriş aktiv olduqda görünür və iş bitdikdə avtomatik silinir;
-   - server **ACK** izlənməsi — hesabatda "📨 WhatsApp tərəfindən qəbul edildi" sayı;
-   - **WhatsApp-da olmayan nömrələr** əvvəlcədən yoxlanılır və atlanır (göndərməyə cəhd edilmir);
-   - eyni nömrəyə təkrar göndərmə qoruyucusu (`DUPLICATE_SEND_TTL_MIN`);
-   - xəta olan nömrə prosesi dayandırmır; sonda **📨 Yenidən göndər** və **🔁 Uğursuzları təkrar** düymələri;
-   - bağlantı kəsilərsə və ya proses yenidən başladılarsa job **avtomatik bərpa olunur** (göndərilmişlər təkrarlanmır);
-   - `.cc` və ya **🛑 Dayandır** işi ləğv edir — ləğv edilmiş iş bir daha bərpa olunmur;
-   - botun hər növbəti sorğu mesajı istifadəçinin son mesajından **sonra — ən aşağıda** yaradılır; keçmiş sorğu mesajları avtomatik silinir;
-   - əməliyyat bitəndə sorğu/seçim/ara mərhələ bot mesajları avtomatik silinir — yalnız yekun nəticə mesajı qalır;
-   - toplu göndəriş zamanı WhatsApp-dan gələn sorğular (cavablar) yadda saxlanılır və göndəriş **tamamilə bitəndən sonra** Telegram çatında ən aşağıda — bizim mesajımızın altında görünür (`WA_FORWARD_INCOMING` ilə söndürmək olar).
-
-## 📥 Gələn sorğular (WhatsApp → Telegram)
-
-Qoşulmuş WhatsApp hesabına gələn mesajlar avtomatik olaraq hesabın sahibi olan Telegram çatına əks olunur:
-
-- **Toplu göndəriş aktiv olmadıqda** — mesaj gələn kimi dərhal ötürülür;
-- **Toplu göndəriş aktiv olduqda** — gələn sorğular yaddaşda saxlanılır və göndəriş **tam bitəndən sonra** (yekun hesabatdan sonra) ardıcıl ötürülür. Beləliklə onlar həmişə bizim yazdığımız mesajın **aşağısında, ən aşağıda** görünür;
-- Öz göndərdiyimiz mesajlar (`fromMe`), status yeniləmələri, tarix sinxronizasiyası və protokol mesajları (reaksiya və s.) ötürülmür;
-- Mətn gələn kimi göstərilir; media (şəkil, video, səs, fayl və s.) növü və başlığı ilə bildirilir.
-
-Nəzarət: `WA_FORWARD_INCOMING=false` ilə söndürün.
-
-## 🇦🇿 Azərbaycan nömrə formatları
-
-Bütün nömrələr daxildə vahid beynəlxalq formata normalizə olunur: **`994XXXXXXXXX`**.
-
-Dəstəklənən daxiletmə formatları:
-```
-+994501234567     994501234567     0501234567
-501234567         050 123 45 67    055-123-45-67
-+994 50 123 45 67 (050)123-45-67   050.123.45.67
-```
-
-Qəbul edilən mobil prefikslər (Azercell: 010/050/051, Bakcell: 055/099, Nar: 070/077, AzInTelecom: 060):
-`10, 50, 51, 55, 60, 70, 77, 99`.
-
-Yanlış nömrələr üçün aydın Azərbaycan dilində xəta mesajı göstərilir və sətir nəzərə alınmır.
-
-## 🔐 İcazələr / tələblər
-
-- `TELEGRAM_TOKEN` — Telegram bot tokeni proyektə əlavə edilib, **deploy üçün konfiqurasiya tələb olunmur**. Env dəyişəni ilə dəyişdirmək istəsəniz: `TELEGRAM_TOKEN=...`.
-- WhatsApp nömrəsinin **Pair Code** ilə qoşulması — rəsmi WhatsApp → Linked Devices → Link with phone number (kod yalnız 5 dəqiqə etibarlıdır).
-- Fayl sisteminə yazma: `sessions/` (auth state), `data/` (kontaktlar, job-lar, son göndərişlər), `temp/` (media keşi).
-- Android permission-lar bu arxitekturada tətbiq edilmir (cihaz kodu işləmir) — tətbiq server tərəfdə işləyir.
-
-## ⚙️ Konfiqurasiya (environment)
-
-| Dəyişən | Default | İzah |
+| Metod | Endpoint | İzah |
 |---|---|---|
-| `TELEGRAM_TOKEN` | daxili default | Telegram bot tokeni (proyektə əlavə olunub; env ilə override etmək olar) |
-| `WA_PRESENCE_CHECK` | `true` | WhatsApp qeydiyyat yoxlaması (USync) |
-| `WA_SKIP_UNREGISTERED` | `true` | Qeydiyyatda olmayan nömrələri atla |
-| `BROADCAST_DELAY_MIN_MS` | `3000` | Göndərişlər arası min gecikmə |
-| `BROADCAST_DELAY_MAX_MS` | `7000` | Göndərişlər arası max gecikmə |
-| `BROADCAST_MAX_RETRIES` | `2` | Hər nömrə üçün retry sayı |
-| `DUPLICATE_SEND_TTL_MIN` | `10` | Təkrar göndərmə qoruyucusu (dəq.; `0` = söndür) |
-| `WA_FORWARD_INCOMING` | `true` | WhatsApp-dan gələn sorğuları sahib Telegram çatına ötür (`false`/`0` = söndür) |
+| POST | `/api/auth/login` | Login → token |
+| POST | `/api/auth/logout` | Çıxış |
+| GET | `/api/auth/me` | Sessiya yoxlaması |
+| GET | `/api/overview` | Dashboard statistikası |
+| GET/POST | `/api/contacts` | Kontakt siyahısı / əlavə et |
+| POST | `/api/contacts/import` | Toplu import |
+| GET/PUT/DELETE | `/api/contacts/:id` | Kontakt əməliyyatları |
+| GET | `/api/contacts/all` | Bütün kontaktlar (minimal) |
+| POST | `/api/wa/connect` | QR/Pair qoşulma |
+| GET | `/api/wa/status` | Sessiya statusları |
+| GET | `/api/wa/qr/:key`, `/api/wa/pair/:phone` | Polling fallback |
+| POST | `/api/wa/disconnect` | Çıxış |
+| POST | `/api/messages/send` | Mesaj/media göndər (multipart) |
+| GET | `/api/jobs` | Job siyahısı (`?state=active`) |
+| GET | `/api/jobs/:id` | Job detalı |
+| POST | `/api/jobs/:id/cancel` | Dayandır |
+| POST | `/api/jobs/:id/retry-failed` | Uğursuzları təkrar |
+| POST | `/api/jobs/cancel-all` | Hamısını dayandır |
+| GET | `/api/history` | Tarixçə |
+| GET/PUT | `/api/settings` | Panel parametrləri |
+| GET | `/api/health` | Health check |
 
-## 📡 WhatsApp inteqrasiyası — məhdudiyyətlər
+---
 
-- Bot **rəsmi WhatsApp Web (multi-device) protokolunun açıq, sənədləşdirilmiş API-lərindən** istifadə edir: `sendMessage`, `onWhatsApp` (USync), `addOrEditContact` (app-state contactAction — WhatsApp Web-in özünün kontakt əlavə etmə mexanizmi). Scraping, private/unofficial API və ya hesabı riskə atan workaround **yoxdur**.
-- **Kontakt saxlanması**: WhatsApp Web protokolu vasitəsilə kontakt yalnız WhatsApp-ın öz kontakt siyahısına yazılır; telefonun native kontakt kitabçasına birbaşa yazmaq bu protokolla mümkün deyil (tam olaraq istənilən davranış: kontakt telefon kitabçasında deyil, WhatsApp kontaktlarında saxlanır). Hər halda kontakt botun daxili bazasında da saxlanır.
-- **Toplu mesaj**: WhatsApp üçüncü tərəf botlar üçün rəsmi "bulk API" vermir. Həddindən artıq sürətli/agressiv göndəriş nömrənin məhdudlaşdırılmasına və ya bloklanmasına səbəb ola bilər — buna görə göndərişlər ardıcıl və təsadüfi gecikmələrlə aparılır (dəyərləri yuxarıdakı env-lərlə tənzimləyin).
-- **Nömrənin WhatsApp-da olub-olmadığı**: yalnız WhatsApp serverinin USync cavabı etibarlıdır. Yoxlama müvəqqəti uğursuz olsa, nömrə "naməlum" kimi göndərilir (göndərmə dayanmır); WhatsApp-da olmadığı **təsdiqlənən** nömrələr atlanır.
-- **Telefon qapalı/arxa plandadırsa**: Baileys server tərəfli göndərişə yazır; mesaj telefon qoşulanda çatdırılır. Bot bağlantısı kəsilərsə job "interrupted" olur və bağlantı bərpa olunanda avtomatik davam edir.
+## 🗄 Database & Deploy
 
-## 🧪 Build & Test
+- **Lokal/sadə deploy**: SQLite (`DATABASE_URL=./data/app.db`) — heç nə konfiqurasiya tələb etmir.
+- **Production**: persistent storage vacibdir (kontaktlar, işlər, sessionlar itməməlidir):
+  - Railway/Render/Fly: persistent volume `data` + `sessions` üzərində.
+  - Migration sistemi var: `npm run migrate` və ya avtomatik (startda).
+
+---
+
+## 📦 Environment Variables
+
+| Dəyişən | Məcburi | Default | İzah |
+|---|---|---|---|
+| `PORT` | ❌ | 3000 | HTTP port |
+| `ADMIN_USERNAME` | ❌ | admin | Panel login |
+| `ADMIN_PASSWORD` | ❌ | (random) | Panel şifrəsi — boşdursa random yaradılır |
+| `DATABASE_URL` | ❌ | ./data/app.db | SQLite faylı |
+| `DATA_DIR` | ❌ | ./data | Persistent data |
+| `SESSION_PATH` | ❌ | ./sessions | WhatsApp sessionlar |
+| `BROADCAST_DELAY_MIN_MS` | ❌ | 3000 | Göndərmələr arası min gecikmə |
+| `BROADCAST_DELAY_MAX_MS` | ❌ | 7000 | Göndərmələr arası max gecikmə |
+| `BROADCAST_MAX_RETRIES` | ❌ | 2 | Retry sayı |
+| `DUPLICATE_SEND_TTL_MIN` | ❌ | 10 | Duplicate qoruyucu |
+| `WA_PRESENCE_CHECK` | ❌ | true | WhatsApp qeydiyyat yoxlaması |
+| `WA_SKIP_UNREGISTERED` | ❌ | true | Qeydiyyatsızları atla |
+| `MAX_RECIPIENTS` | ❌ | 10000 | Max alıcı |
+| `FRONTEND_URL` / `API_URL` / `WS_URL` | ❌ | — | Ayrı frontend deploy üçün |
+
+---
+
+## 🧪 Test
 
 ```bash
-npm install
-npm test          # 71 unit test (phone, contacts, contactBrowser, broadcast, queue, jobs, ss flow, payload)
-npm start         # token proyektə əlavə olunub — heç bir env tələb olunmur
+npm test
 ```
 
-Sağlamlıq yoxlaması: `GET /health` → `{ status, telegram, whatsapp, sha, uptime }`.
+---
 
-## 📁 Struktur
+## ℹ️ Qeyd
 
-```
-lib/
-  azPhone.js            # Azərbaycan nömrə validasiyası + normalizasiyası (994XXXXXXXXX)
-  phone.js              # .rr/.ss mətn parsing, dedup, ad yoxlaması
-  broadcast.js          # ardıcıl göndərmə mühərriki (retry, progress, skip, cancel, ACK)
-  contactBrowser.js     # 📒 kontakt brauzeri (səhifələmə, əməliyyatlar)
-  telegramPayload.js    # Telegram → WhatsApp payload (format saxlanılır)
-  menu.js               # emoji menyu + düymə layout-ları
-modules/
-  contactStore.js       # persistent kontakt bazası (data/contacts.json, upsert/dedup)
-  contactService.js     # .rr pipeline: saxla + WhatsApp kontakt sinxronizasiyası
-  waPresence.js         # onWhatsApp (USync) + addOrEditContact (contactAction)
-  jobStore.js           # persistent job state (data/jobs/, resume/cancel)
-  broadcastService.js   # qlobal serialized göndərmə queue + job lifecycle
-  recentSends.js        # təkrar göndərmə qoruyucusu
-  queue.js              # FIFO ardıcıl worker (cancel, removeWhere)
-  whatsappManager.js    # Baileys socket lifecycle, watchdog, onConnected hooks
-  sessionManager.js     # per-chat FSM session
-  telegramBot.js        # Telegram giriş nöqtəsi + callback-lər
-  commandParser.js      # .rr/.ss/.gg/.cc + alias-lar
-commands/
-  rr.js                 # .rr axını
-  ss.js                 # .ss axını (nömrə → mesaj → təsdiq → göndər)
-  contacts.js           # 📒 kontakt idarəetmə axını (bax/dəyiş/sil)
-```
+Bu layihə WhatsApp-ın rəsmi **Linked Devices / WhatsApp Web** protokolundan (Baileys) istifadə edir. Hesabın ban riskini azaltmaq üçün göndərmə limitləri (gecikmələr, max alıcı) konfiqurasiya oluna bilər. Böyük həcmli göndərişlərdən əvvəl limitləri aşağı salın.

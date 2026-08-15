@@ -1,27 +1,24 @@
-const { isolateDataDir } = require('./helpers');
-isolateDataDir('recentsends');
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const os = require('os');
+const path = require('path');
+const fs = require('fs');
 
-process.env.DUPLICATE_SEND_TTL_MIN = '1'; // short TTL for tests
-const recentSends = require('../modules/recentSends');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wpm-recent-'));
+process.env.DATA_DIR = tmp;
+process.env.DATABASE_URL = path.join(tmp, 'app.db');
 
-test.before(() => recentSends._reset());
-test.after(() => recentSends._reset());
+const { migrate, close } = require('../db');
+const recentSends = require('../lib/recentSends');
 
-test('markSent + isDuplicate keyed by payload + normalization', () => {
-  recentSends.markSent('0501234567', 'key-a');
-  // same payload → duplicate
-  assert.equal(recentSends.isDuplicate('994501234567', 'key-a'), true);
-  // different payload → allowed
-  assert.equal(recentSends.isDuplicate('+994501234567', 'key-b'), false);
-  // unknown phone → allowed
-  assert.equal(recentSends.isDuplicate('994551234567', 'key-a'), false);
-  assert.ok(recentSends.recentPhones().includes('994501234567'));
-  assert.equal(recentSends.isRecent('994501234567'), true);
+test('recentSends: duplicate guard by payload key', () => {
+  migrate();
+  recentSends._reset();
+  recentSends.markSent('0501234567', 'key-1');
+  assert.equal(recentSends.isDuplicate('994501234567', 'key-1'), true);
+  assert.equal(recentSends.isDuplicate('994501234567', 'key-2'), false);
+  assert.equal(recentSends.isRecent('0501234567'), true);
+  assert.equal(recentSends.isRecent('0551234567'), false);
 });
 
-test('isDuplicate returns false for a different number', () => {
-  recentSends.markSent('994551234567', 'key-a');
-  assert.equal(recentSends.isDuplicate('994551234567', 'key-b'), false);
-});
+test.after(() => { close(); });

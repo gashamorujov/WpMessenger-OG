@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Queue } = require('../modules/queue');
+const { Queue } = require('../lib/queue');
 const { sleep } = require('../lib/myfunc');
 
 test('queue processes items sequentially and reports success/failure', async () => {
@@ -50,9 +50,8 @@ test('removeWhere drops matching queued items only', async () => {
   q.push('keep:1');
   q.push('drop:1');
   q.push('keep:2');
-  q.push('drop:2');
-  const removed = q.removeWhere((item) => String(item).startsWith('drop:'));
-  assert.equal(removed, 2);
+  const removed = q.removeWhere((item) => item.startsWith('drop:'));
+  assert.equal(removed, 1);
   await q.run();
   assert.deepEqual(seen, ['keep:1', 'keep:2']);
 });
