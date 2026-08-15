@@ -14,7 +14,7 @@ const auth = require('./server/auth');
 const hub = require('./server/webSocketHub');
 const wa = require('./server/whatsappManager');
 const broadcastService = require('./server/broadcastService');
-const { router: apiRouter } = require('./server/routes');
+const { createApp } = require('./server/app');
 const { makeLogger } = require('./lib/logger');
 
 const LOG = makeLogger('SERVER');
@@ -25,20 +25,8 @@ process.env.TMPDIR = TEMP_DIR;
 process.env.TEMP = TEMP_DIR;
 process.env.TMP = TEMP_DIR;
 
-// ─── Express app ───
-const app = express();
-app.disable('x-powered-by');
-app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-
-app.use('/api', apiRouter);
-
-// Static frontend (SPA) — everything non-API falls back to index.html
-const FRONTEND_DIR = path.join(__dirname, 'frontend');
-app.use(express.static(FRONTEND_DIR, { maxAge: '1h', index: false }));
-app.get(/^\/(?!api\/|ws).*/, (req, res) => {
-  res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
-});
+// ─── Express app (production middleware chain in server/app.js) ───
+const app = createApp();
 
 // ─── HTTP server + WebSocket ───
 const server = http.createServer(app);
@@ -52,7 +40,7 @@ async function boot() {
     if (creds?.generated) {
       LOG.info('────────────────────────────────────────────');
       LOG.info('WEB PANEL LOGIN');
-      LOG.info(`  URL:    http://localhost:${settings.port}`);
+      LOG.info(`  URL:    ${settings.frontendUrl || 'http://localhost:' + settings.port}`);
       LOG.info(`  User:   ${creds.username}`);
       LOG.info(`  Pass:   ${creds.password}`);
       LOG.info('  ⚠ Change it in Settings after login (or set ADMIN_PASSWORD env).');
@@ -61,7 +49,8 @@ async function boot() {
 
     hub.attach(server);
     server.listen(settings.port, '0.0.0.0', () => {
-      LOG.info(`WpMessenger OG v${settings.version} → http://0.0.0.0:${settings.port}`);
+      const publicUrl = settings.apiUrl || settings.frontendUrl || '';
+      LOG.info(`WpMessenger OG v${settings.version} → ${publicUrl ? publicUrl : 'port ' + settings.port}`);
     });
 
     // Reconnect stored WhatsApp sessions, then recover interrupted jobs.

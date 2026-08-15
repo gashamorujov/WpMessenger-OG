@@ -11,19 +11,15 @@ process.env.DATABASE_URL = path.join(tmp, 'app.db');
 process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PASSWORD = 'test-pass-1';
 
-const express = require('express');
 const { migrate, close } = require('../db');
 const auth = require('../server/auth');
-const { router } = require('../server/routes');
+const { createApp } = require('../server/app');
 
 let server;
 let base;
 
 function buildApp() {
-  const app = express();
-  app.use(express.json({ limit: '1mb' }));
-  app.use('/api', router);
-  return app;
+  return createApp();
 }
 
 async function req(method, p, { body, token } = {}) {
@@ -132,6 +128,18 @@ test('API: settings read + update', async () => {
 
   const badUp = await req('PUT', '/settings', { token: t, body: { overrides: { broadcastDelayMinMs: 'abc' } } });
   assert.equal(badUp.status, 400);
+});
+
+test('API: CORS preflight + dynamic frontend config', async () => {
+  const pre = await fetch(base + '/api/health', { method: 'OPTIONS', headers: { Origin: 'https://frontend.example.com', 'Access-Control-Request-Method': 'GET' } });
+  assert.equal(pre.status, 204);
+  assert.equal(pre.headers.get('access-control-allow-origin'), '*');
+
+  const cfg = await fetch(base + '/js/config.generated.js');
+  assert.equal(cfg.status, 200);
+  const body = await cfg.text();
+  assert.ok(body.includes('window.__WPM_CONFIG__'));
+  assert.ok(body.includes('"apiUrl"'));
 });
 
 test('API: login rate limiting', async () => {

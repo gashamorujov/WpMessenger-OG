@@ -1,0 +1,26 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Docker əsaslı persistent backend. Panel: <service>.onrender.com
+services:
+  - type: web
+    name: wp-messenger-og
+    runtime: docker
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATA_DIR
+        value: /data
+      - key: SESSION_PATH
+        value: /data/sessions
+      - key: DATABASE_URL
+        value: /data/app.db
+    disk:
+      name: wp-messenger-data
+      mountPath: /data
+      sizeGB: 1

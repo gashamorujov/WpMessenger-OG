@@ -11,9 +11,13 @@ services:
       - PORT=3000
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      - DATA_DIR=/app/data
-      - SESSION_PATH=/app/sessions
-      - DATABASE_URL=/app/data/app.db
+      - FRONTEND_URL=${FRONTEND_URL:-}
+      - API_URL=${API_URL:-}
+      - WS_URL=${WS_URL:-}
+      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - DATA_DIR=/data
+      - SESSION_PATH=/data/sessions
+      - DATABASE_URL=/data/app.db
+      - TRUST_PROXY=${TRUST_PROXY:-true}
     volumes:
-      - ./data:/app/data
-      - ./sessions:/app/sessions
+      - ./data:/data

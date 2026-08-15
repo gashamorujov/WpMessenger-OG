@@ -1,0 +1,13 @@
+{
+  "name": "wp-messenger-og-frontend",
+  "version": "7.1.0",
+  "private": true,
+  "description": "WpMessenger OG — static frontend for Vercel/Netlify/Cloudflare Pages deploys. Point API_URL to the persistent backend (Railway/VPS/Docker).",
+  "scripts": {
+    "build": "node scripts/build-config.js",
+    "dev": "npx --yes serve -l 3000 ."
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

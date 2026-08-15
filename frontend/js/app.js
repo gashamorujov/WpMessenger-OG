@@ -2,6 +2,13 @@
 (function () {
   'use strict';
 
+  // Deploy config — served by the backend (/js/config.generated.js) or
+  // generated at build time for Vercel/Netlify static deploys.
+  const __CFG = window.__WPM_CONFIG__ || {};
+  const API_BASE = String(__CFG.apiUrl || '').replace(/\/+$/, '');
+  const WS_BASE = String(__CFG.wsUrl || '').replace(/\/+$/, '')
+    || (API_BASE ? API_BASE.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:') : '');
+
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -70,7 +77,7 @@
       const headers = opts.headers || {};
       if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
       if (this.state.token) headers['Authorization'] = 'Bearer ' + this.state.token;
-      const res = await fetch('/api' + path, { ...opts, headers, credentials: 'same-origin' });
+      const res = await fetch(API_BASE + '/api' + path, { ...opts, headers, credentials: 'same-origin' });
       let data = null;
       try { data = await res.json(); } catch {}
       if (res.status === 401 && this.state.token) {
@@ -87,8 +94,11 @@
     connectWS() {
       if (this.state.ws) { try { this.state.ws.close(); } catch {} }
       if (!this.state.token) return;
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(this.state.token)}`);
+      const tokenParam = '?token=' + encodeURIComponent(this.state.token);
+      const wsUrl = WS_BASE
+        ? WS_BASE + '/ws' + tokenParam
+        : ((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/ws' + tokenParam);
+      const ws = new WebSocket(wsUrl);
       this.state.ws = ws;
       ws.onopen = () => { this.state.wsState = 'online'; this.patchShell(); };
       ws.onclose = () => {

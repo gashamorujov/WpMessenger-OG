@@ -20,6 +20,7 @@ fi
 docker compose up -d --build
 
 echo ""
-echo "✅ WpMessenger OG hazırdır → http://localhost:3000"
+IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+echo "✅ WpMessenger OG hazırdır → http://${IP:-<server-ip>}:3000"
 echo "   Login: env-dakı ADMIN_USERNAME / ADMIN_PASSWORD (boşdursa ilk loqa baxın)"
 echo "   Data: ./data (kontaktlar, DB, işlər) və ./sessions (WhatsApp sessionları)"

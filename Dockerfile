@@ -11,6 +11,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 COPY . .
 
+# Statik frontend konfiqurasiyasını da yaradır (backend həm də dinamik verir)
+RUN npm run build
+
 RUN mkdir -p data sessions data/temp
 
 ENV NODE_ENV=production
@@ -18,6 +21,7 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-VOLUME ["/app/data", "/app/sessions"]
+VOLUME ["/data", "/app/sessions"]
 
+# Railway/Render/Fly volume-ları ilə /data mount edin (DB + sessionlar üçün)
 CMD ["node", "index.js"]

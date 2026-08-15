@@ -1,0 +1,32 @@
+# Fly.io — https://fly.io/docs/reference/configuration/
+# `fly launch` → `fly deploy` (persistent volume: fly volumes create wpm_data --size 1)
+app = "wp-messenger-og"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  ADMIN_USERNAME = "admin"
+  DATA_DIR = "/data"
+  SESSION_PATH = "/data/sessions"
+  DATABASE_URL = "/data/app.db"
+
+[[mounts]]
+  source = "wpm_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+
+  [[services.ports]]
+    handlers = ["http"]
+    port = 80
+    force_https = true
+    auto_ports = true
+
+  [[services.http_checks]]
+    path = "/api/health"
+    interval = "30s"
+    timeout = "5s"

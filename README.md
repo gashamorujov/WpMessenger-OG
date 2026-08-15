@@ -79,27 +79,71 @@ Açın: http://localhost:3000 → login → **WhatsApp-a qoşul** (QR / Pair Cod
 
 ## ☁️ Deploy
 
-### Railway
-1. Reponu Railway-ə qoşun (Dockerfile avtomatik istifadə olunur).
-2. Env dəyişənləri: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `PORT` (Railway təyin edir).
-3. Persistent volume əlavə edin: `data` → `/app/data`, `sessions` → `/app/sessions`.
+> **Avtomatik konfiqurasiya:** `PORT`, `API_URL`, `WS_URL`, `FRONTEND_URL` və CORS
+> platforma environment variable-larından (`RAILWAY_PUBLIC_DOMAIN`,
+> `RENDER_EXTERNAL_URL`, `VERCEL_URL`, `FLY_APP_NAME` və s.) **avtomatik təyin
+> olunur** — heç bir hard-code edilmiş URL yoxdur. Yalnız `ADMIN_PASSWORD`
+> təyin etmək vacibdir (boşdursa random yaradılır və loqa yazılır).
+
+### Arxitektura: iki variant
+
+**A) Tək deploy (tövsiyə olunur)** — backend paneli də servis edir:
+Railway / Render / Fly.io / VPS / Docker. Əlavə konfiqurasiya yoxdur.
+
+**B) Ayrı frontend + backend** — statik frontend Vercel / Netlify /
+Cloudflare Pages-də, persistent WhatsApp backend Railway / VPS / Docker-də.
+
+```
+┌──────────────┐   HTTPS (CORS)   ┌─────────────────────────┐
+│ Vercel/Netlify│ ───────────────▶ │ Railway/VPS (backend)    │
+│  frontend/    │  REST + WebSocket│  WhatsApp sessions + DB  │
+└──────────────┘                  └─────────────────────────┘
+```
+
+### Railway (tək deploy)
+1. Reponu Railway-ə qoşun — `Dockerfile` avtomatik istifadə olunur.
+2. Env: `ADMIN_USERNAME`, `ADMIN_PASSWORD` (məcburi); `PORT` Railway təyin edir.
+3. Persistent volume əlavə edin və `/data`-ya mount edin (DB + sessionlar).
+   Railway → Deployments → Volume → `data` → mount path `/data`.
+4. Public domain avtomatik olaraq `API_URL`/`WS_URL` kimi istifadə olunur.
+
+### Render
+Repo kökündəki `render.yaml` blueprint hazırdır: "New → Blueprint" seçin.
+Disk (`/data`) və `ADMIN_PASSWORD` (sync: false) avtomatik yaradılır.
+
+### Fly.io
+```bash
+fly launch --no-deploy
+fly volumes create wpm_data --size 1
+fly deploy
+```
+`fly.toml` artıq konfiqurasiya olunub (volume mount `/data`, health check).
 
 ### VPS (Docker)
 ```bash
-REPO_URL=https://github.com/YOUR_USER/WpMessenger-OG.git bash scripts/deploy-vps.sh
+REPO_URL=https://github.com/gashamorujov/WpMessenger-OG.git bash scripts/deploy-vps.sh
 ```
-Data `./data` və `./sessions` qovluqlarında persistent saxlanılır.
+Data `./data` volume-da persistent saxlanılır; panel `http://<server-ip>:3000`.
 
-### Render / Fly.io
-- Persistent disk `data` və `sessions` qovluqlarına mount edin.
-- `npm start` ilə işlədilir (`node index.js`).
+### Vercel / Netlify — yalnız frontend (B variantı)
+Backend ilk olaraq Railway/Render/VPS-də deploy edin, sonra:
 
-### Frontend ayrıca (Vercel / Netlify)
-WhatsApp WebSocket/session daimi işləyən Node server tələb edir — serverless frontend-də backend işlədə bilməz. Buna görə:
+1. Vercel-də repo → root directory: `frontend`.
+2. Env vars: `API_URL=https://wpm.up.railway.app` (və istəsəniz `WS_URL`).
+   `npm run build` `frontend/js/config.generated.js`-i yaradır; frontend
+   `API_URL`-ə və törədilmiş `WS_URL`-ə (wss://) qoşulur.
+3. Netlify üçün eyni: build `npm run build`, publish `.`, env `API_URL`.
 
-- **Frontend**: `frontend/` qovluğunu Vercel/Netlify-ə deploy edin (fayllar statikdir).
-- **Backend**: Railway/VPS-də işləsin.
-- `.env`-də `FRONTEND_URL`, `API_URL`, `WS_URL` ilə əlaqələndirin.
+> Vercel/Netlify **serverless məhdudiyyəti** var: WhatsApp WebSocket/session
+> daimi işləyən proses tələb edir. Bu platformalarda backend deploy etməyə
+> çalışmayın — backend üçün Railway/VPS/Render/Docker istifadə edin.
+
+### Docker (lokal / istənilən server)
+```bash
+docker build -t wp-messenger-og .
+docker run -p 3000:3000 -e ADMIN_PASSWORD=changeme -v $(pwd)/data:/data wp-messenger-og
+```
+`docker-compose.yml` hazırdır: `docker compose up -d --build`.
 
 ---
 
@@ -146,7 +190,9 @@ WhatsApp WebSocket/session daimi işləyən Node server tələb edir — serverl
 
 - **Lokal/sadə deploy**: SQLite (`DATABASE_URL=./data/app.db`) — heç nə konfiqurasiya tələb etmir.
 - **Production**: persistent storage vacibdir (kontaktlar, işlər, sessionlar itməməlidir):
-  - Railway/Render/Fly: persistent volume `data` + `sessions` üzərində.
+  - Railway/Render/Fly: persistent volume `/data` üzərində
+    (`DATA_DIR=/data`, `SESSION_PATH=/data/sessions`, `DATABASE_URL=/data/app.db`
+    — `render.yaml`, `fly.toml` və `docker-compose.yml` bunu artıq edir).
   - Migration sistemi var: `npm run migrate` və ya avtomatik (startda).
 
 ---
@@ -161,6 +207,14 @@ WhatsApp WebSocket/session daimi işləyən Node server tələb edir — serverl
 | `DATABASE_URL` | ❌ | ./data/app.db | SQLite faylı |
 | `DATA_DIR` | ❌ | ./data | Persistent data |
 | `SESSION_PATH` | ❌ | ./sessions | WhatsApp sessionlar |
+| `FRONTEND_URL` | ❌ | auto | Panelin public URL-i (platformadan törəyir) |
+| `API_URL` / `BACKEND_URL` | ❌ | auto | Backend origin (Railway/Render/...) |
+| `WS_URL` | ❌ | auto | WebSocket base (API_URL-dən törəyir, wss://) |
+| `CORS_ORIGIN` | ❌ | * (hamısı) | Vergüllə ayrılmış icazəli origin-lər |
+| `TRUST_PROXY` | ❌ | true | Proxy arxasında düzgün IP |
+| `RAILWAY_PUBLIC_DOMAIN` | ❌ | — | Railway avtomatik verir |
+| `RENDER_EXTERNAL_URL` | ❌ | — | Render avtomatik verir |
+| `VERCEL_URL` | ❌ | — | Vercel avtomatik verir |
 | `BROADCAST_DELAY_MIN_MS` | ❌ | 3000 | Göndərmələr arası min gecikmə |
 | `BROADCAST_DELAY_MAX_MS` | ❌ | 7000 | Göndərmələr arası max gecikmə |
 | `BROADCAST_MAX_RETRIES` | ❌ | 2 | Retry sayı |
