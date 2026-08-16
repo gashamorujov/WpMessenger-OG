@@ -929,8 +929,8 @@
           <span>Versiya: <b>v${esc(st.version)}</b></span>
           <span>API_URL: <span class="mono">${esc(st.env.apiUrl || '—')}</span></span>
           <span>WS_URL: <span class="mono">${esc(st.env.wsUrl || '—')}</span></span>
-          <span>Data qovluğu: <span class="mono">${esc(st.env.dataDir)}</span></span>
-          <span>DB: <span class="mono">${esc(st.env.dbFile)}</span></span>
+          <span>Storage: <span class="mono">${esc(st.env.storage || '—')}</span></span>
+          <span>Firebase DB: <span class="mono">${esc(st.env.firebaseDb || '—')}</span></span>
         </div>
       </div>`;
     },

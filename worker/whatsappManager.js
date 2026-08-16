@@ -13,7 +13,6 @@
  */
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
@@ -22,34 +21,82 @@ const pino = require('pino');
 const NodeCache = require('node-cache');
 const QRCode = require('qrcode');
 const { EventEmitter } = require('events');
-const fs = require('fs-extra');
-const path = require('path');
 const config = require('./lib/config');
+const fb = require('../lib/firebase');
 const { sleep } = require('./lib/myfunc');
 const { makeLogger } = require('./lib/logger');
 
 const LOG = makeLogger('WA');
 
-const SESSIONS_DIR = config.sessionDir;
-const SESSION_DATA_FILE = path.join(SESSIONS_DIR, 'sessions.json');
-
-fs.ensureDirSync(SESSIONS_DIR);
+const SESSIONS_PATH = 'wpm/wa/sessions';
+const AUTH_STATE_PATH = 'wpm/wa/state';
 
 let sessionsData = {};
-try {
-  if (fs.existsSync(SESSION_DATA_FILE)) {
-    sessionsData = JSON.parse(fs.readFileSync(SESSION_DATA_FILE, 'utf-8'));
+let sessionsLoaded = false;
+let sessionsSaveTimer = null;
+
+/** Load persisted session metadata from Firebase RTDB (called at boot). */
+async function init() {
+  if (sessionsLoaded) return;
+  sessionsLoaded = true;
+  try {
+    sessionsData = (await fb.get(SESSIONS_PATH)) || {};
+  } catch (e) {
+    LOG.error('loadSessionsData:', e.message);
+    sessionsData = {};
   }
-} catch {
-  sessionsData = {};
 }
 
 function saveSessionsData() {
-  try {
-    fs.writeFileSync(SESSION_DATA_FILE, JSON.stringify(sessionsData, null, 2));
-  } catch (e) {
-    LOG.error('saveSessionsData:', e.message);
-  }
+  clearTimeout(sessionsSaveTimer);
+  sessionsSaveTimer = setTimeout(() => {
+    sessionsSaveTimer = null;
+    fb.set(SESSIONS_PATH, sessionsData).catch((e) => LOG.error('saveSessionsData:', e.message));
+  }, 400);
+}
+
+/**
+ * Firebase-backed Baileys auth state (creds + signal keys).
+ * Persists under wpm/wa/state/{phone} with debounced writes — no local files.
+ */
+async function useFirebaseAuthState(phone) {
+  const base = `${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`;
+  const data = await fb.get(base).catch(() => null);
+  const creds = (data && data.creds) || {};
+  const keys = (data && data.keys) || {};
+  let saveTimer = null;
+  const scheduleSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      saveTimer = null;
+      fb.set(base, { creds, keys }).catch((e) => LOG.warn(`auth save +${phone}:`, e.message));
+    }, 900);
+  };
+  return {
+    state: {
+      creds,
+      keys: {
+        async get(type, ids) {
+          const out = {};
+          for (const id of ids || []) {
+            const v = keys[type + ':' + id];
+            if (v !== undefined) out[id] = v;
+          }
+          return out;
+        },
+        async set(data) {
+          for (const [cat, items] of Object.entries(data || {})) {
+            for (const [id, value] of Object.entries(items || {})) {
+              if (value === null) delete keys[cat + ':' + id];
+              else keys[cat + ':' + id] = value;
+            }
+          }
+          scheduleSave();
+        },
+      },
+    },
+    saveCreds: scheduleSave,
+  };
 }
 
 const emitter = new EventEmitter();
@@ -79,7 +126,6 @@ function fireConnectedHooks(phone, sock) {
 }
 
 const fmtPhone = (n) => String(n || '').replace(/[^0-9]/g, '');
-const sessDir = (p) => path.join(SESSIONS_DIR, p);
 
 function emit(type, payload) {
   try { emitter.emit(type, payload); } catch (e) { LOG.error('emit error:', e.message); }
@@ -114,9 +160,7 @@ async function connectWithPhone(phone, method = 'pair') {
   setStatus(phone, { phone, status: 'connecting', method, connectedAt: null, name: '', jid: '' });
 
   try {
-    const dir = sessDir(phone);
-    fs.ensureDirSync(dir);
-    const { state, saveCreds } = await useMultiFileAuthState(dir);
+    const { state, saveCreds } = await useFirebaseAuthState(phone);
     const { version } = await fetchLatestBaileysVersion();
     const msgCache = new NodeCache();
 
@@ -199,7 +243,7 @@ async function connectWithPhone(phone, method = 'pair') {
           pendingPair.delete(phone);
           delete sessionsData[phone];
           saveSessionsData();
-          try { fs.removeSync(dir); } catch {}
+          await fb.remove(`${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`).catch(() => {});
           emit('status', { phone, session: { phone, status: 'logged_out' } });
           return;
         }
@@ -305,7 +349,7 @@ async function disconnectSession(phone) {
     try { activeConnections[phone].end(new Error('User logout')); } catch {}
     delete activeConnections[phone];
   }
-  try { fs.removeSync(sessDir(phone)); } catch {}
+  await fb.remove(`${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`).catch(() => {});
   pendingQr.delete(phone);
   pendingPair.delete(phone);
   delete sessionsData[phone];
@@ -389,38 +433,13 @@ async function autoReconnectAll() {
     }
   }
 
-  try {
-    if (fs.existsSync(SESSIONS_DIR)) {
-      const dirs = fs.readdirSync(SESSIONS_DIR);
-      for (const dir of dirs) {
-        if (dir === 'sessions.json' || dir.startsWith('.')) continue;
-        const authPath = path.join(SESSIONS_DIR, dir, 'creds.json');
-        if (fs.existsSync(authPath)) {
-          const phone = dir.replace(/[^0-9]/g, '');
-          if (phone && (!sessionsData[phone] || sessionsData[phone]?.status !== 'connected')) {
-            if (!sessionsData[phone]) sessionsData[phone] = { phone, status: 'reconnecting' };
-            else sessionsData[phone].status = 'reconnecting';
-            LOG.info(`Found stored auth for ${dir}, reconnecting...`);
-            try {
-              await connectWithPhone(phone, 'pair');
-              reconnected++;
-            } catch (e) {
-              LOG.error(`Reconnect failed for ${dir}:`, e.message);
-            }
-          }
-        }
-      }
-    }
-  } catch (e) {
-    LOG.warn('No sessions to auto-reconnect:', e.message);
-  }
-
   if (reconnected === 0) LOG.info('No previous WhatsApp sessions found.');
   return reconnected;
 }
 
 module.exports = {
   emitter,
+  init,
   connectWithPhone,
   disconnectSession,
   startConnectionWatchdog,

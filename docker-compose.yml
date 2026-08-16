@@ -1,10 +1,10 @@
 # ─── WpMessenger OG — Local / VPS deploy (web + worker) ───
-#   cp .env.example .env   →   doldurun (ADMIN_PASSWORD, WORKER_API_TOKEN)
+#   cp .env.example .env   →   doldurun (WORKER_API_TOKEN)
 #   docker compose up -d --build
 # Panel: http://localhost:3000
 #
-# Production üçün WORKER_API_URL/WORKER_WS_URL worker-in public ünvanı olmalıdır
-# (məs. https://worker.example.com), yoxsa brauzer WS-ə qoşula bilməz.
+# Heç bir lokal verilənlər bazası / persistent volume tələb olunmur — bütün
+# məlumatlar Firebase Realtime Database-də saxlanılır.
 services:
   web:
     build: .
@@ -14,16 +14,13 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       - PORT=3000
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD required}
-      - DATABASE_URL=/data/app.db
-      - DATA_DIR=/data
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-gasham}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-gasham1006}
+      - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL:-https://chatog-94528-default-rtdb.firebaseio.com}
       - WORKER_API_URL=${WORKER_API_URL:-http://worker:3100}
       - WORKER_API_TOKEN=${WORKER_API_TOKEN:?WORKER_API_TOKEN required}
       - WORKER_WS_URL=${WORKER_WS_URL:-ws://worker:3100}
       - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-    volumes:
-      - wpm-data:/data
     depends_on:
       - worker
 
@@ -33,12 +30,5 @@ services:
     restart: unless-stopped
     environment:
       - PORT=3100
-      - DATABASE_URL=/data/app.db
-      - DATA_DIR=/data
-      - SESSION_PATH=/data/sessions
+      - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL:-https://chatog-94528-default-rtdb.firebaseio.com}
       - WORKER_API_TOKEN=${WORKER_API_TOKEN:?WORKER_API_TOKEN required}
-    volumes:
-      - wpm-data:/data
-
-volumes:
-  wpm-data:

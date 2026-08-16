@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY . .
-RUN mkdir -p data/sessions data/uploads
 ENV NODE_ENV=production
 EXPOSE 3100
 CMD ["node", "server.js"]

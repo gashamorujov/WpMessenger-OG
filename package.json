@@ -7,17 +7,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node scripts/start.js",
-    "migrate": "node scripts/migrate.js",
     "test": "node --test",
-    "check": "node --check next.config.mjs && node scripts/migrate.js --check",
+    "check": "node --check next.config.mjs && node -e \"const c=require('./lib/config'); if(!c.firebase.databaseURL) throw new Error('FIREBASE_DATABASE_URL required'); console.log('config OK — Firebase:', c.firebase.databaseURL);\"",
     "reset-admin": "node scripts/reset-admin.js",
     "worker:install": "npm --prefix worker install",
     "worker:start": "node worker/server.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
     "next": "^15.4.0",
-    "pg": "^8.14.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

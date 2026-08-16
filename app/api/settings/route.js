@@ -19,7 +19,8 @@ export async function GET() {
       workerApiUrl: config.workerApiUrl,
       workerWsUrl: config.workerWsUrl,
       workerConfigured: !!(config.workerApiUrl && config.workerApiToken),
-      database: config.isPostgres ? 'PostgreSQL' : 'SQLite',
+      firebaseDb: config.firebase.databaseURL,
+      storage: 'Firebase Realtime Database',
     },
   });
 }

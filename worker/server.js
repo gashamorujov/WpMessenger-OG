@@ -8,14 +8,13 @@
  * Next.js web app (Vercel/Netlify) never opens WhatsApp connections; it
  * proxies commands here over HTTPS with a shared bearer token.
  */
-const path = require('path');
 const http = require('http');
 const express = require('express');
 const fs = require('fs-extra');
 const config = require('./lib/config');
-const { migrate } = require('./lib/migrations');
 const { makeLogger } = require('./lib/logger');
 const appSettings = require('./lib/appSettings');
+const recentSends = require('./lib/recentSends');
 const auth = require('./auth');
 const hub = require('./webSocketHub');
 const wa = require('./whatsappManager');
@@ -24,12 +23,12 @@ const { router: apiRouter } = require('./routes');
 
 const LOG = makeLogger('WORKER');
 
-const TEMP_DIR = path.join(config.dataDir, 'temp');
-fs.ensureDirSync(TEMP_DIR);
-fs.ensureDirSync(path.join(config.dataDir, 'uploads'));
-process.env.TMPDIR = TEMP_DIR;
-process.env.TEMP = TEMP_DIR;
-process.env.TMP = TEMP_DIR;
+// Ephemeral scratch dirs in the OS temp folder — nothing persistent required.
+fs.ensureDirSync(config.tmpDir);
+fs.ensureDirSync(config.uploadsDir);
+process.env.TMPDIR = config.tmpDir;
+process.env.TEMP = config.tmpDir;
+process.env.TMP = config.tmpDir;
 
 function createApp() {
   const app = express();
@@ -68,15 +67,10 @@ function createApp() {
 }
 
 async function boot() {
-  try {
-    await migrate();
-    LOG.info(`Database ready (${config.isPostgres ? 'PostgreSQL' : 'SQLite'})`);
-  } catch (e) {
-    LOG.error('Database migration failed:', e.message);
-    LOG.error('DATABASE_URL dəyişənini yoxlayın (SQLite üçün: ./data/app.db, production üçün PostgreSQL URL-i).');
-    process.exit(1);
-  }
-
+  // All data lives in Firebase Realtime Database — nothing to migrate.
+  LOG.info(`Firebase RTDB: ${config.firebase.databaseURL}`);
+  await wa.init().catch(() => {});
+  await recentSends.init().catch(() => {});
   await appSettings.refresh().catch(() => {});
   if (!config.workerApiToken) {
     LOG.warn('WORKER_API_TOKEN təyin edilməyib — API sorğuları 503 qaytaracaq. WEB app-də eyni tokeni təyin edin.');
@@ -143,7 +137,7 @@ async function boot() {
 }
 
 function UPLOADS_DIR() {
-  return path.join(config.dataDir, 'uploads');
+  return config.uploadsDir;
 }
 
 // ─── Graceful shutdown ───

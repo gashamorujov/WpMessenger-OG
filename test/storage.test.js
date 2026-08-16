@@ -1,27 +1,43 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
 
-// Point the shared config at a throwaway SQLite DB before loading modules.
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wpm-storage-'));
-process.env.DATABASE_URL = path.join(tmp, 'app.db');
-process.env.DATA_DIR = tmp;
+// Use the in-memory Firebase transport — no network, no local files.
+process.env.FIREBASE_DATABASE_URL = 'memory://';
 
-const { storage } = require('../lib/storage');
+const fb = require('../lib/firebase');
 const { contactsRepo, jobsRepo, sessionsRepo, usersRepo, settingsRepo } = require('../lib/repositories');
 
-test('storage initialises SQLite with the full schema', async () => {
-  const db = await storage();
-  assert.equal(db.dialect, 'sqlite');
-  for (const table of ['users', 'sessions', 'contacts', 'jobs', 'settings']) {
-    const row = await db.get("SELECT name FROM sqlite_master WHERE type='table' AND name = ?", [table]);
-    assert.ok(row, `table ${table} missing`);
-  }
+test.beforeEach(() => {
+  fb._memoryReset();
 });
 
-test('contacts CRUD + normalization dedupe', async () => {
+test('firebase transport: set/get/update/push/remove semantics', async () => {
+  const id = await fb.push('wpm/test', { a: 1 });
+  assert.ok(id);
+  const val = await fb.get('wpm/test/' + id);
+  assert.equal(val.a, 1);
+
+  await fb.update('wpm/test/' + id, { b: 2, a: null });
+  const after = await fb.get('wpm/test/' + id);
+  assert.deepEqual(after, { b: 2 });
+
+  await fb.set('wpm/test/' + id, { c: 3 });
+  assert.deepEqual(await fb.get('wpm/test/' + id), { c: 3 });
+
+  await fb.remove('wpm/test/' + id);
+  assert.equal(await fb.get('wpm/test/' + id), null);
+});
+
+test('buffer round-trip (Baileys auth state style)', async () => {
+  const buf = Buffer.from([1, 2, 3, 255]);
+  await fb.set('wpm/buf', { key: { type: 'Buffer', data: Array.from(buf) }, plain: 'x' });
+  const out = await fb.get('wpm/buf');
+  assert.ok(Buffer.isBuffer(out.key));
+  assert.deepEqual(Array.from(out.key), [1, 2, 3, 255]);
+  assert.equal(out.plain, 'x');
+});
+
+test('contacts CRUD + normalization dedupe (Firebase)', async () => {
   const a = await contactsRepo.upsert({ name: 'Əli Məmmədov', phone: '0501234567' });
   assert.equal(a.created, true);
   assert.equal(a.contact.normalizedPhone, '994501234567');
@@ -45,7 +61,7 @@ test('contacts CRUD + normalization dedupe', async () => {
   assert.equal(await contactsRepo.count(), 0);
 });
 
-test('jobs lifecycle: create → interrupted → recover → cancelled', async () => {
+test('jobs lifecycle: create → interrupted → recover → cancelled (Firebase)', async () => {
   const job = await jobsRepo.create({
     type: 'text',
     payloadSpec: { type: 'text', text: 'Salam' },
@@ -59,7 +75,6 @@ test('jobs lifecycle: create → interrupted → recover → cancelled', async (
   assert.equal(mid.successCount, 1);
   assert.equal(mid.targets[0].status, 'sent');
 
-  // recoverInterrupted converts leftover 'running' jobs to 'interrupted'
   const recovered = await jobsRepo.recoverInterrupted();
   assert.ok(recovered.some((j) => j.id === job.id && j.state === 'interrupted'));
 
@@ -69,7 +84,7 @@ test('jobs lifecycle: create → interrupted → recover → cancelled', async (
   assert.ok(done.finishedAt);
 });
 
-test('sessions + settings', async () => {
+test('sessions + settings (Firebase)', async () => {
   const token = await sessionsRepo.create('test-agent', '127.0.0.1');
   assert.equal(await sessionsRepo.isValid(token), true);
   await sessionsRepo.destroy(token);
@@ -87,14 +102,12 @@ test('admin bootstrap creates default credentials; changeCredentials invalidates
   assert.equal(await usersRepo.verify('gasham', 'gasham1006'), true);
   assert.equal(await usersRepo.verify('gasham', 'wrong'), false);
 
-  // Failed change does not touch sessions or credentials
   const token = await sessionsRepo.create('test-agent', '127.0.0.1');
   assert.equal(await sessionsRepo.isValid(token), true);
   const bad = await usersRepo.changeCredentials('wrong-pass', 'gasham2', 'newpass123');
   assert.equal(bad.ok, false);
   assert.equal(await sessionsRepo.isValid(token), true);
 
-  // Successful change updates credentials and destroys all sessions
   const ok = await usersRepo.changeCredentials('gasham1006', 'gasham2', 'newpass123');
   assert.equal(ok.ok, true);
   assert.equal(ok.username, 'gasham2');

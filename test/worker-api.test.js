@@ -9,6 +9,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wpm-worker-test-'));
 const PORT = 3900 + Math.floor(Math.random() * 500);
 const TOKEN = 'test-token-123';
 const BASE = `http://127.0.0.1:${PORT}`;
+const FIREBASE_FILE = `file://${path.join(tmp, 'firebase.json')}`;
 
 let child = null;
 
@@ -31,9 +32,8 @@ test.before(async () => {
       ...process.env,
       PORT: String(PORT),
       WORKER_API_TOKEN: TOKEN,
-      DATABASE_URL: path.join(tmp, 'app.db'),
-      DATA_DIR: tmp,
-      SESSION_PATH: path.join(tmp, 'sessions'),
+      FIREBASE_DATABASE_URL: FIREBASE_FILE,
+      FIREBASE_ENABLED: 'true',
       BROADCAST_DELAY_MIN_MS: '0',
       BROADCAST_DELAY_MAX_MS: '0',
     },
@@ -76,13 +76,15 @@ test('upload stores a file and returns fileId', async () => {
   const body = await res.json();
   assert.ok(body.fileId);
   assert.equal(body.size, 12);
-  assert.ok(fs.existsSync(path.join(tmp, 'uploads', body.fileId)));
+  assert.ok(fs.existsSync(path.join(os.tmpdir(), 'wpm-uploads', body.fileId)));
 });
 
-test('job created in the shared DB is executed by the worker', async () => {
-  // Create a job in the shared database from the test process...
-  process.env.DATABASE_URL = path.join(tmp, 'app.db');
-  process.env.DATA_DIR = tmp;
+test('job created in the shared Firebase store is executed by the worker', async () => {
+  // Create a job in the shared Firebase-backed store from the test process...
+  process.env.FIREBASE_DATABASE_URL = FIREBASE_FILE;
+  delete require.cache[require.resolve('../lib/config')];
+  delete require.cache[require.resolve('../lib/firebase')];
+  delete require.cache[require.resolve('../lib/repositories')];
   const { jobsRepo } = require('../lib/repositories');
   const job = await jobsRepo.create({
     type: 'text',

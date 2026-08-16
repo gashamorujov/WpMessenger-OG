@@ -19,11 +19,13 @@ test('config derives worker WS URL from WORKER_API_URL', () => {
   assert.equal(cfg.workerWsUrl, 'wss://worker.example.com');
 });
 
-test('config detects PostgreSQL DATABASE_URL', () => {
-  const cfg = loadConfig({ DATABASE_URL: 'postgresql://u:p@localhost:5432/wpm' });
-  assert.equal(cfg.isPostgres, true);
-  const cfg2 = loadConfig({});
-  assert.equal(cfg2.isPostgres, false);
+test('config defaults to the Firebase project (chatog-94528)', () => {
+  const cfg = loadConfig({});
+  assert.equal(cfg.firebase.enabled, true);
+  assert.equal(cfg.firebase.databaseURL, 'https://chatog-94528-default-rtdb.firebaseio.com');
+  assert.equal(cfg.firebase.projectId, 'chatog-94528');
+  assert.ok(!('databaseUrl' in cfg));
+  assert.ok(!('isPostgres' in cfg));
 });
 
 test('config has no hardcoded localhost defaults for worker URLs', () => {

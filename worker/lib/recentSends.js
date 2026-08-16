@@ -1,24 +1,19 @@
 /**
  * RecentSends — cross-job duplicate-send guard (keyed by payload).
  *
- * Records { phone → { ts, key } } for every bulk message sent
- * (data/recent-sends.json). A phone is only blocked when the SAME payload
- * (message text / media identity) was sent within the TTL — so sending two
- * different messages to the same list stays possible, while accidentally
- * re-sending the exact same message is prevented.
+ * Records { phone → { ts, key } } for every bulk message sent. Stored in
+ * Firebase RTDB (wpm/wa/recentSends) with an in-memory cache and debounced
+ * writes, so a phone is only blocked when the SAME payload (message text /
+ * media identity) was sent within the TTL. No local files are used.
  *
  * TTL: DUPLICATE_SEND_TTL_MIN (default 10 min; 0 disables the guard).
  */
-const fs = require('fs-extra');
-const path = require('path');
-const crypto = require('crypto');
+const fb = require('../../lib/firebase');
 const { makeLogger } = require('./logger');
 const { normalizePhone } = require('./phone');
 
 const LOG = makeLogger('RECENT-SENDS');
-
-const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, '..', 'data');
-const FILE = path.join(DATA_DIR, 'recent-sends.json');
+const PATH = 'wpm/wa/recentSends';
 
 const appSettings = require('./appSettings');
 
@@ -30,78 +25,74 @@ function ttlMs() {
 
 let sends = {};
 let loaded = false;
+let saveTimer = null;
 
-function load() {
-  if (loaded) return sends;
+async function init() {
+  if (loaded) return;
   loaded = true;
   try {
-    if (fs.existsSync(FILE)) sends = JSON.parse(fs.readFileSync(FILE, 'utf-8'));
-  } catch {
+    sends = (await fb.get(PATH)) || {};
+  } catch (e) {
+    LOG.error('Load recent-sends failed:', e.message);
     sends = {};
   }
-  return sends;
 }
 
-function save() {
-  try {
-    fs.writeFileSync(FILE, JSON.stringify(sends));
-  } catch (e) {
-    LOG.error('Save recent-sends failed:', e.message);
-  }
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    fb.set(PATH, sends).catch((e) => LOG.error('Save recent-sends failed:', e.message));
+  }, 1500);
 }
 
-/**
- * @param {string} phone — any format
- * @param {string} payloadKey — stable identity of the message content
- */
+async function flush() {
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  await fb.set(PATH, sends).catch((e) => LOG.error('Save recent-sends failed:', e.message));
+}
+
 function markSent(phone, payloadKey = '') {
   const ttl = ttlMs();
   if (ttl <= 0) return;
   const p = normalizePhone(phone);
   if (!p) return;
-  load();
   sends[p] = { ts: Date.now(), key: String(payloadKey || '') };
-  save();
+  scheduleSave();
 }
 
-/** True when the SAME message content was sent to this phone within TTL. */
 function isDuplicate(phone, payloadKey = '') {
   const ttl = ttlMs();
   if (ttl <= 0) return false;
   const p = normalizePhone(phone);
   if (!p) return false;
-  load();
   const rec = sends[p];
   if (!rec) return false;
   if (Date.now() - rec.ts >= ttl) return false;
   return !payloadKey || rec.key === String(payloadKey);
 }
 
-/** True when ANY bulk message was sent to this phone within TTL (warnings). */
 function isRecent(phone) {
   const ttl = ttlMs();
   if (ttl <= 0) return false;
   const p = normalizePhone(phone);
   if (!p) return false;
-  load();
   const rec = sends[p];
   if (!rec) return false;
   return Date.now() - rec.ts < ttl;
 }
 
-/** @returns {string[]} phones with a recent send (for .ss warnings). */
 function recentPhones() {
   const ttl = ttlMs();
   if (ttl <= 0) return [];
-  load();
   const now = Date.now();
   return Object.keys(sends).filter((p) => now - sends[p].ts < ttl);
 }
 
-function _reset() {
+async function _reset() {
   sends = {};
-  loaded = false;
-  try { fs.removeSync(FILE); } catch {}
+  loaded = true;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  await fb.remove(PATH).catch(() => {});
 }
 
-module.exports = { markSent, isDuplicate, isRecent, recentPhones, ttlMs, _reset };
+module.exports = { init, flush, markSent, isDuplicate, isRecent, recentPhones, ttlMs, _reset };

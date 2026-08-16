@@ -20,7 +20,7 @@ const { makeLogger } = require('./lib/logger');
 
 const LOG = makeLogger('WORKER-API');
 
-const UPLOADS_DIR = path.join(config.dataDir, 'uploads');
+const UPLOADS_DIR = config.uploadsDir;
 fs.ensureDirSync(UPLOADS_DIR);
 
 const router = express.Router();

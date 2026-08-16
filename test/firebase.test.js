@@ -31,6 +31,7 @@ test('worker realtime mirror is a safe no-op when disabled', async () => {
   process.env.FIREBASE_ENABLED = 'false';
   delete require.cache[require.resolve('../worker/lib/config')];
   delete require.cache[require.resolve('../worker/lib/realtime')];
+  delete require.cache[require.resolve('../lib/firebase')];
   const realtime = require('../worker/lib/realtime');
   assert.equal(await realtime.publish('stats', {}), false);
   if (prev === undefined) delete process.env.FIREBASE_ENABLED;

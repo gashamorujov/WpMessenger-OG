@@ -1,12 +1,12 @@
 /**
  * Worker configuration — environment variables only, nothing hard-coded.
  *
- * The worker is the persistent WhatsApp backend. It reads the SAME database
- * as the Next.js web app (SQLite via a shared volume, or PostgreSQL), so
- * jobs created by the web API are executed here and progress is written
- * back to the shared database.
+ * The worker is the persistent WhatsApp backend. All shared data (jobs,
+ * settings, contacts, WhatsApp auth state) lives in Firebase Realtime
+ * Database — no local database, no ./data folder, no PostgreSQL.
  */
 const path = require('path');
+const os = require('os');
 
 const intEnv = (name, fallback) => {
   const v = parseInt(process.env[name], 10);
@@ -31,11 +31,9 @@ const config = {
   // Shared secret between web app and worker (required for API access)
   workerApiToken: process.env.WORKER_API_TOKEN || '',
 
-  // Persistence
-  dataDir: process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, 'data'),
-  sessionDir: process.env.SESSION_PATH ? path.resolve(process.env.SESSION_PATH) : path.join(ROOT, 'sessions'),
-  databaseUrl: process.env.DATABASE_URL || path.join(ROOT, 'data', 'app.db'),
-  isPostgres: /^postgres(?:ql)?:\/\//i.test(String(process.env.DATABASE_URL || '')),
+  // Ephemeral runtime dirs (OS temp — nothing persistent is required)
+  tmpDir: process.env.TMP_DIR ? path.resolve(process.env.TMP_DIR) : path.join(os.tmpdir(), 'wpm-tmp'),
+  uploadsDir: process.env.UPLOADS_DIR ? path.resolve(process.env.UPLOADS_DIR) : path.join(os.tmpdir(), 'wpm-uploads'),
 
   // WhatsApp
   waPresenceCheck: boolEnv('WA_PRESENCE_CHECK', true),
@@ -60,7 +58,7 @@ const config = {
   // Realtime ticket TTL (seconds)
   wsTicketTtlSec: intEnv('WS_TICKET_TTL_SEC', 120),
 
-  // Firebase Realtime Database — realtime event mirror (REST, no SDK needed).
+  // Firebase Realtime Database — shared store + realtime event feed.
   firebase: {
     enabled: boolEnv('FIREBASE_ENABLED', true) && !!String(process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com').trim(),
     databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com',

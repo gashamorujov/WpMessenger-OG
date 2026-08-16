@@ -1,8 +1,8 @@
 # WpMessenger OG — WhatsApp Web Management Panel
 
 Deploy-first, production-ready WhatsApp Web Management Panel built with
-**Next.js App Router** (Vercel/Netlify-friendly) + a **persistent WhatsApp
-worker** that runs on Railway/VPS/Docker.
+**Next.js App Router** (Vercel/Netlify/serverless-friendly) + a **persistent
+WhatsApp worker** that runs on Railway/VPS/Docker.
 
 ```
 İstifadəçi → Login → WhatsApp qoşul (QR / Pair Code) → Kontakt əlavə et →
@@ -13,49 +13,40 @@ Mesaj/Media göndər → Real-time progress → Tarixçə
 
 - **Web (Next.js)** — App Router UI + Route Handlers API. Runs on Vercel,
   Netlify, Railway, Render, Fly.io, Docker or any Node host.
-  - Auth (cookie sessions), contacts, jobs, settings, history — all in the database.
+  - Auth (cookie sessions), contacts, jobs, settings, history — all in
+    **Firebase Realtime Database**.
   - WhatsApp commands are **proxied** to the worker over HTTPS with a shared
     bearer token. The web app NEVER opens a WhatsApp/WebSocket connection.
 - **Worker (persistent)** — `worker/` Express + Baileys process. Runs on
   Railway/VPS/Docker. Owns the long-lived WhatsApp sessions, executes send
-  jobs and pushes realtime events (`wss://…/ws?ticket=…`) to the browser.
-- **Database** — shared between web and worker:
-  - Local dev: SQLite (`DATABASE_URL=./data/app.db`)
-  - Production: PostgreSQL (Neon/Supabase/Railway) — `DATABASE_URL=postgresql://…`
-  - Jobs are created by the web app and executed by the worker against the
-    same DB; progress is written back so the UI always reflects reality.
+  jobs and pushes realtime events to the browser.
+- **Storage + Realtime — Firebase Realtime Database (single source of truth)**:
+  - `wpm/users`, `wpm/sessions`, `wpm/contacts`, `wpm/jobs`, `wpm/settings`,
+    `wpm/wa/*` (WhatsApp auth state) — every piece of app data.
+  - `wpm/events` — realtime event feed the SPA listens to with the
+    Firebase JS SDK (no polling, no WebSocket infrastructure needed).
+  - **No local database, no `./data` folder, no PostgreSQL, no persistent
+    volume required** — deploys on serverless and any platform with network.
 
 ```
 Browser ── HTTPS /api/* ──► Next.js (Vercel/Netlify) ── bearer token ──► Worker API ──► WhatsApp
-Browser ── wss://…/ws?ticket=… ──► Worker WebSocket (realtime events)
+Browser ── Firebase SDK ──► Firebase RTDB (wpm/events)  ◄── worker mirrors every event
 ```
 
 ## Quick start (local)
 
 ```bash
-cp .env.example .env     # set ADMIN_USERNAME, ADMIN_PASSWORD, WORKER_API_TOKEN
+cp .env.example .env     # set WORKER_API_TOKEN (Firebase defaults are fine)
 npm install              # web app deps
 npm --prefix worker install
 npm run build
 # terminal 1 — worker
-WORKER_API_TOKEN=... DATABASE_URL=./data/app.db node worker/server.js
+WORKER_API_TOKEN=... node worker/server.js
 # terminal 2 — web
 npm start
 ```
 
 Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
-
-### Forgotten admin credentials
-
-On the machine hosting the database (VPS shell, Railway console, or
-`docker compose exec web sh`), run:
-
-```bash
-ADMIN_USERNAME=gasham ADMIN_PASSWORD=<new-password> npm run reset-admin
-```
-
-This resets the admin user to `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults:
-`gasham` / `gasham1006`) and invalidates every active session.
 
 > First login uses **`gasham` / `gasham1006`** by default (configurable via
 > `ADMIN_USERNAME` / `ADMIN_PASSWORD`). Credentials are **never shown on the
@@ -63,28 +54,39 @@ This resets the admin user to `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults:
 > **Settings → Təhlükəsizlik** — changing them invalidates all active sessions
 > and requires re-login.
 
+### Forgotten admin credentials
+
+Run the reset helper from anywhere that can reach Firebase:
+
+```bash
+ADMIN_USERNAME=gasham ADMIN_PASSWORD=<new-password> npm run reset-admin
+```
+
+This resets the admin user in Firebase (`wpm/users/admin`) to
+`ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults: `gasham` / `gasham1006`) and
+invalidates every active session.
+
 ## Deploy matrix
 
 | Platform | Web (Next.js) | Worker (persistent) | Notes |
 | --- | --- | --- | --- |
-| **Vercel** | repo root | Railway/VPS | No config file needed. Set env vars below. Use PostgreSQL. |
+| **Vercel** | repo root | Railway/VPS | No config file needed. Set env vars below. No DB needed. |
 | **Netlify** | repo root (`netlify.toml`) | Railway/VPS | `@netlify/plugin-nextjs` auto-installed. |
 | **Railway** | repo root (`railway.toml`) | 2nd service, root dir `worker` | `worker/railway.toml` included. |
-| **Render** | `render.yaml` (web service) | `render.yaml` (worker service) | Persistent disks mounted at `/data`. |
-| **VPS / Docker** | `docker-compose.yml` | same compose file | Shared `wpm-data` volume (SQLite + sessions). |
-| **Fly.io** | `fly.toml` | `cd worker && fly launch` | Persistent volume for `/data`. |
+| **Render** | `render.yaml` (web service) | `render.yaml` (worker service) | No disks required. |
+| **VPS / Docker** | `docker-compose.yml` | same compose file | No volumes — Firebase only. |
+| **Fly.io** | `fly.toml` | `cd worker && fly launch` | No volume required. |
 
 ### Vercel / Netlify
 
 1. Import the repo. No build config needed (Next auto-detected).
-2. Add a PostgreSQL database (Neon/Supabase/Railway) and deploy the worker
-   on Railway/VPS (see below).
+2. Deploy the worker on Railway/VPS (see below).
 3. Set env vars:
 
 ```bash
 ADMIN_USERNAME=gasham
 ADMIN_PASSWORD=gasham1006   # change after first login from the admin panel
-DATABASE_URL=postgresql://user:pass@host:5432/wpm   # production DB
+FIREBASE_DATABASE_URL=https://chatog-94528-default-rtdb.firebaseio.com  # optional — this is the default
 WORKER_API_URL=https://your-worker.up.railway.app    # worker public URL
 WORKER_API_TOKEN=<long-random-secret>                # SAME on web + worker
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app      # optional
@@ -96,46 +98,47 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app      # optional
 
 ```bash
 # Railway: New → Empty Service → Root Directory: worker
-# env: WORKER_API_TOKEN, DATABASE_URL (same DB), PORT auto
+# env: WORKER_API_TOKEN, PORT auto (Firebase defaults apply)
 # VPS (Docker):
 docker compose up -d --build
 ```
 
-## Realtime (Firebase Realtime Database)
+## Storage & Realtime (Firebase Realtime Database)
 
-All realtime events (WhatsApp status/QR/pair, job progress, contacts and
-settings changes) are mirrored to **Firebase Realtime Database** under
-`wpm/events` — the browser listens with the Firebase JS SDK, so every panel
-view updates live without polling or WebSocket infrastructure.
+Firebase RTDB is the **only database** — there is no SQLite, no PostgreSQL,
+no `./data` folder and no persistent volume anywhere in the stack.
 
-- The worker mirrors every WebSocket hub broadcast to Firebase (REST).
-- The web app publishes `contacts:changed` / `settings:changed` events.
-- The SPA uses Firebase when configured and falls back to the worker
-  WebSocket hub automatically (`FIREBASE_ENABLED=false` or unreachable DB).
-- Event history is pruned automatically (worker), keeping the feed bounded.
+- All data lives under `wpm/*`: users, sessions, contacts, jobs, settings,
+  and the worker's WhatsApp auth state (`wpm/wa/state/{phone}`), session
+  metadata (`wpm/wa/sessions`) and duplicate-send guard (`wpm/wa/recentSends`).
+- Realtime events are pushed to `wpm/events` by the worker (mirroring every
+  WebSocket hub broadcast) and by the web app (`contacts:changed`,
+  `settings:changed`). The SPA subscribes with the Firebase JS SDK and every
+  panel view updates live.
+- The worker's WebSocket hub remains as a fallback channel for browsers that
+  cannot reach Firebase.
+- The event feed is pruned automatically (worker, REST transport).
 
 > ⚠️ This integration uses the provided public client config over REST, so
 > the Realtime Database rules must allow public read/write for `wpm/*`.
-> If your rules are locked down, either open them (demo) or the app keeps
-> working via the WebSocket fallback.
+> If your rules are locked down, the app still works through the WebSocket
+> fallback (realtime events) but data persistence requires open `wpm/*` rules
+> or a Firebase Admin SDK setup.
 
 ## Environment variables
 
 All configuration is env-driven — no hardcoded hosts, ports or URLs.
-URLs are auto-derived from platform env vars (`RAILWAY_PUBLIC_DOMAIN`,
-`RENDER_EXTERNAL_URL`, `VERCEL_URL`, `FLY_APP_NAME`) when not set.
+Firebase defaults to the `chatog-94528` project configuration.
 
 | Variable | Where | Description |
 | --- | --- | --- |
 | `PORT` | web | HTTP port (default 3000; platform `PORT` used automatically) |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (default `gasham` / `gasham1006`) |
-| `FIREBASE_DATABASE_URL` (+ optional `FIREBASE_API_KEY` etc.) | web + worker | Realtime event mirror; defaults to `chatog-94528` project |
-| `FIREBASE_ENABLED` | web + worker | `true` (default) — `false` uses the WebSocket hub fallback |
+| `FIREBASE_DATABASE_URL` (+ optional `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`) | web + worker | Firebase RTDB project (default `chatog-94528`) |
+| `FIREBASE_ENABLED` | web + worker | `true` (default) — `false` disables the realtime event mirror |
 | `WORKER_API_URL` | web | Worker public API URL (`https://worker.up.railway.app`) |
 | `WORKER_API_TOKEN` | web + worker | Shared secret — **must match** |
-| `WORKER_WS_URL` | web | Realtime WS URL (auto-derived `wss://` from API URL) |
-| `DATABASE_URL` | web + worker | SQLite file or PostgreSQL URL — **same value on both** |
-| `DATA_DIR` / `SESSION_PATH` | worker | Runtime data + Baileys sessions |
+| `WORKER_WS_URL` | web | Realtime WS fallback URL (auto-derived `wss://` from API URL) |
 | `BROADCAST_DELAY_MIN_MS` / `BROADCAST_DELAY_MAX_MS` | both | Random delay between sends |
 | `BROADCAST_MAX_RETRIES` | both | Per-recipient retry count |
 | `DUPLICATE_SEND_TTL_MIN` | both | Cross-job duplicate guard TTL (0 disables) |
@@ -143,8 +146,8 @@ URLs are auto-derived from platform env vars (`RAILWAY_PUBLIC_DOMAIN`,
 | `MAX_RECIPIENTS` / `MAX_MESSAGE_LENGTH` / `MAX_UPLOAD_BYTES` | both | Safety limits |
 | `RATE_LIMIT_*` / `LOGIN_RATE_LIMIT_MAX` | web | Login/API rate limiting |
 
-Settings page overrides (delay, retries, limits) are stored in the shared
-database and honoured by the worker.
+Settings page overrides (delay, retries, limits) are stored in Firebase and
+honoured by the worker.
 
 ## Scripts
 
@@ -153,19 +156,20 @@ npm run dev        # next dev
 npm run build      # next build (standalone output)
 npm start          # production start (standalone-aware)
 npm test           # node --test (unit + worker integration)
-npm run migrate    # apply DB migrations
+npm run reset-admin  # reset admin credentials in Firebase
 npm run check      # config/syntax check
 npm --prefix worker install   # install worker deps
 ```
 
 ## Testing
 
-`npm test` covers phone normalization, the send queue, the shared storage
-layer (SQLite), and a real worker boot (health, bearer auth, uploads,
-job execution against the shared DB). A full manual flow was verified:
+`npm test` covers phone normalization, the send queue, the Firebase-backed
+storage layer (in-memory transport), and a real worker boot (health, bearer
+auth, uploads, job execution against a shared local Firebase transport). A
+full manual flow was verified:
 
 `npm install → npm run build → npm start → login → contact create/dedupe →
-text+media send → job pickup by worker → realtime ticket → history`.
+text+media send → job pickup by worker → realtime events → history`.
 
 WhatsApp QR/Pair linking and delivery require a real WhatsApp account and
 are exercised through the same code path used by the previous production
@@ -175,12 +179,12 @@ version of the panel.
 
 ```
 app/            Next.js App Router pages + Route Handler API
-lib/            Web config, storage (SQLite/PostgreSQL), repositories, auth, worker client
+lib/            Firebase client (rest/memory/file transports), repositories, auth, worker client
 public/         SPA (spa.js/spa.css) + static assets
 worker/         Persistent WhatsApp backend (Express + Baileys), own package
-scripts/        migrate + standalone-aware start
+scripts/        reset-admin + standalone-aware start
 test/           node:test suite
 Dockerfile      Web image (Next standalone)
-docker-compose.yml   Web + worker on one VPS
-render.yaml / railway.toml / fly.toml / Procfile / netlify.toml
+docker-compose.yml   Web + worker on one VPS (no volumes)
+render.yaml / railway.toml / fly.toml / netlify.toml
 ```

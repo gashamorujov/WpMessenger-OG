@@ -26,9 +26,7 @@ const { makeLogger } = require('./lib/logger');
 
 const LOG = makeLogger('BROADCAST');
 
-const JOBS_DIR = path.join(config.dataDir, 'jobs');
-const UPLOADS_DIR = path.join(config.dataDir, 'uploads');
-fs.ensureDirSync(JOBS_DIR);
+const UPLOADS_DIR = config.uploadsDir;
 fs.ensureDirSync(UPLOADS_DIR);
 
 /** Stable identity of a payload — used by the cross-job duplicate guard. */
@@ -223,11 +221,7 @@ async function executeJob(jobId) {
   hub.broadcast('stats', {});
 }
 
-function cleanupMedia(job) {
-  try {
-    fs.removeSync(path.join(JOBS_DIR, job.id, 'media'));
-  } catch {}
-}
+function cleanupMedia() {}
 
 // ─── Public API ───
 

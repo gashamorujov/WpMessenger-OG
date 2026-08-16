@@ -1,6 +1,6 @@
 # ─── Fly.io — Web app ───
 # Worker üçün ayrıca app yaradın: cd worker && fly launch
-# Persistent volume: fly volumes create wpm_data --size 1
+# Heç bir volume tələb olunmur — məlumatlar Firebase RTDB-dədir.
 app = "wp-messenger-og"
 
 [build]
@@ -8,15 +8,10 @@ app = "wp-messenger-og"
 
 [env]
   PORT = "3000"
-  ADMIN_USERNAME = "admin"
-  DATA_DIR = "/data"
-  DATABASE_URL = "/data/app.db"
+  ADMIN_USERNAME = "gasham"
+  FIREBASE_DATABASE_URL = "https://chatog-94528-default-rtdb.firebaseio.com"
   WORKER_API_URL = "https://wp-messenger-og-worker.fly.dev"
   WORKER_WS_URL = "wss://wp-messenger-og-worker.fly.dev"
-
-[[mounts]]
-  source = "wpm_data"
-  destination = "/data"
 
 [[services]]
   internal_port = 3000

@@ -1,41 +1,33 @@
-# WpMessenger OG — WhatsApp Worker
+# WpMessenger OG — Worker
 
-Persistent WhatsApp backend (Baileys). The Next.js web app (Vercel/Netlify)
-never opens WhatsApp connections — it proxies every WhatsApp command to this
-worker over HTTPS with a shared bearer token.
+Persistent WhatsApp backend (Express + Baileys) for WpMessenger OG.
 
-## Run locally
+- Runs on Railway / VPS / Docker (long-lived host required for WhatsApp).
+- **All data lives in Firebase Realtime Database** (`wpm/*`) — no local
+  database, no `./data` folder, no PostgreSQL, no persistent volume.
+- Baileys auth state, session metadata and the duplicate-send guard are
+  persisted in Firebase (`wpm/wa/state`, `wpm/wa/sessions`,
+  `wpm/wa/recentSends`).
+- Every realtime event is mirrored to `wpm/events` for the browser.
+
+## Run
 
 ```bash
-cp .env.example .env   # set WORKER_API_TOKEN (and DATABASE_URL for Postgres)
+cp .env.example .env   # set WORKER_API_TOKEN (Firebase defaults are fine)
 npm install
-npm start
+node server.js         # PORT=3100 default
 ```
 
-## Deploy
+## Environment
 
-- **Railway**: new service → root directory `worker` (uses `worker/railway.toml`).
-- **Docker**: `docker build -f worker/Dockerfile -t wp-worker .`
-- **VPS/compose**: `docker compose up -d --build` (web + worker together, shared volume).
-
-## Env vars
-
-| Variable | Required | Description |
-| --- | --- | --- |
-| `PORT` | no | HTTP port (platform `PORT` used automatically). Default `3100`. |
-| `WORKER_API_TOKEN` | **yes** | Shared secret — must equal the web app's `WORKER_API_TOKEN`. |
-| `DATABASE_URL` | no | SQLite file (default `./data/app.db`) or PostgreSQL URL. Must be the SAME database as the web app. |
-| `DATA_DIR` / `SESSION_PATH` | no | Runtime data (uploads, jobs) and Baileys session storage. |
-
-## API (bearer token required)
-
-- `GET /api/health` — open healthcheck
-- `GET /api/status` — WhatsApp sessions
-- `POST /api/connect` `{phone, method: 'qr'|'pair'}`
-- `POST /api/disconnect` `{phone}`
-- `GET /api/qr/:key`, `GET /api/pair/:phone`
-- `POST /api/ws-ticket` — realtime WebSocket ticket
-- `POST /api/upload` — media upload (raw body + `X-Filename`/`X-Mimetype`)
-- `POST /api/jobs` `{jobId}` — execute a job from the shared database
-- `POST /api/jobs/:id/cancel`
-- `POST /api/contact-mirror`, `POST /api/check-registered`
+| Variable | Description |
+| --- | --- |
+| `PORT` | HTTP/WS port (default 3100) |
+| `WORKER_API_TOKEN` | Shared secret — **same as the web app** |
+| `FIREBASE_DATABASE_URL` | Firebase RTDB URL (default `chatog-94528` project) |
+| `FIREBASE_ENABLED` | `true` (default) |
+| `WA_PRESENCE_CHECK` / `WA_SKIP_UNREGISTERED` | Registration pre-check |
+| `DUPLICATE_SEND_TTL_MIN` | Duplicate-send guard TTL (minutes) |
+| `UPLOAD_TTL_MS` | Media upload lifetime (default 30 min) |
+| `BROADCAST_DELAY_MIN_MS` / `BROADCAST_DELAY_MAX_MS` | Pacing |
+| `BROADCAST_MAX_RETRIES` | Per-recipient retries |
