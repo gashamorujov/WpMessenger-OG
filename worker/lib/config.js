@@ -60,8 +60,8 @@ const config = {
 
   // Firebase Realtime Database — shared store + realtime event feed.
   firebase: {
-    enabled: boolEnv('FIREBASE_ENABLED', true) && !!String(process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com').trim(),
-    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com',
+    enabled: boolEnv('FIREBASE_ENABLED', true) && !!String(process.env.FIREBASE_DATABASE_URL || 'https://whatsbotog-default-rtdb.firebaseio.com').trim(),
+    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://whatsbotog-default-rtdb.firebaseio.com',
   },
 };
 

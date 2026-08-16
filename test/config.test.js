@@ -19,11 +19,11 @@ test('config derives worker WS URL from WORKER_API_URL', () => {
   assert.equal(cfg.workerWsUrl, 'wss://worker.example.com');
 });
 
-test('config defaults to the Firebase project (chatog-94528)', () => {
+test('config defaults to the Firebase project (whatsbotog)', () => {
   const cfg = loadConfig({});
   assert.equal(cfg.firebase.enabled, true);
-  assert.equal(cfg.firebase.databaseURL, 'https://chatog-94528-default-rtdb.firebaseio.com');
-  assert.equal(cfg.firebase.projectId, 'chatog-94528');
+  assert.equal(cfg.firebase.databaseURL, 'https://whatsbotog-default-rtdb.firebaseio.com');
+  assert.equal(cfg.firebase.projectId, 'whatsbotog');
   assert.ok(!('databaseUrl' in cfg));
   assert.ok(!('isPostgres' in cfg));
 });

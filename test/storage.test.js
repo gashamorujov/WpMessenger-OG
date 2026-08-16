@@ -95,23 +95,23 @@ test('sessions + settings (Firebase)', async () => {
   assert.equal(effective.maxRetries, 5);
 });
 
-test('admin bootstrap creates default credentials; changeCredentials invalidates sessions', async () => {
+test('admin bootstrap creates default password; password-only login works', async () => {
   const res = await usersRepo.ensureAdmin();
   assert.equal(res.created, true);
-  assert.equal(res.username, 'gasham');
-  assert.equal(await usersRepo.verify('gasham', 'gasham1006'), true);
+  // Password-only: any username is accepted, only the password matters.
+  assert.equal(await usersRepo.verify('anyone', 'gasham1006'), true);
+  assert.equal(await usersRepo.verify(null, 'gasham1006'), true);
   assert.equal(await usersRepo.verify('gasham', 'wrong'), false);
 
   const token = await sessionsRepo.create('test-agent', '127.0.0.1');
   assert.equal(await sessionsRepo.isValid(token), true);
-  const bad = await usersRepo.changeCredentials('wrong-pass', 'gasham2', 'newpass123');
+  const bad = await usersRepo.changePassword('wrong-pass', 'newpass123');
   assert.equal(bad.ok, false);
   assert.equal(await sessionsRepo.isValid(token), true);
 
-  const ok = await usersRepo.changeCredentials('gasham1006', 'gasham2', 'newpass123');
+  const ok = await usersRepo.changePassword('gasham1006', 'newpass123');
   assert.equal(ok.ok, true);
-  assert.equal(ok.username, 'gasham2');
   assert.equal(await sessionsRepo.isValid(token), false);
   assert.equal(await usersRepo.verify('gasham', 'gasham1006'), false);
-  assert.equal(await usersRepo.verify('gasham2', 'newpass123'), true);
+  assert.equal(await usersRepo.verify('anyone', 'newpass123'), true);
 });

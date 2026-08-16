@@ -11,12 +11,12 @@ export async function POST(request) {
 
   let body;
   try { body = await request.json(); } catch { return fail('Yanlış sorğu formatı'); }
-  const { currentPassword, username, newPassword } = body || {};
-  if (!currentPassword || !username || !newPassword) {
-    return fail('Cari şifrə, yeni istifadəçi adı və yeni şifrə tələb olunur');
+  const { currentPassword, newPassword } = body || {};
+  if (!currentPassword || !newPassword) {
+    return fail('Cari şifrə və yeni şifrə tələb olunur');
   }
 
-  const res = await usersRepo.changeCredentials(currentPassword, username, newPassword);
+  const res = await usersRepo.changePassword(currentPassword, newPassword);
   if (!res.ok) return fail(res.error, 400);
-  return json({ ok: true, username: res.username });
+  return json({ ok: true });
 }

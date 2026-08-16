@@ -48,23 +48,23 @@ npm start
 
 Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
 
-> First login uses **`gasham` / `gasham1006`** by default (configurable via
-> `ADMIN_USERNAME` / `ADMIN_PASSWORD`). Credentials are **never shown on the
-> login page**. Change them right after first login from
-> **Settings → Təhlükəsizlik** — changing them invalidates all active sessions
-> and requires re-login.
+> Login is **password-only** — the default password is **`gasham1006`**
+> (configurable via `ADMIN_PASSWORD`). Anyone with the password can sign in;
+> no username is needed. The password is **never shown on the login page**.
+> Change it from **Settings → Təhlükəsizlik** — changing it invalidates all
+> active sessions and requires re-login.
 
 ### Forgotten admin credentials
 
 Run the reset helper from anywhere that can reach Firebase:
 
 ```bash
-ADMIN_USERNAME=gasham ADMIN_PASSWORD=<new-password> npm run reset-admin
+ADMIN_PASSWORD=<new-password> npm run reset-admin
 ```
 
-This resets the admin user in Firebase (`wpm/users/admin`) to
-`ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults: `gasham` / `gasham1006`) and
-invalidates every active session.
+This resets the admin password in Firebase (`wpm/users/admin`) to
+`ADMIN_PASSWORD` (default: `gasham1006`) and invalidates every active
+session. Login is password-only — the username is not used.
 
 ## Deploy matrix
 
@@ -86,7 +86,7 @@ invalidates every active session.
 ```bash
 ADMIN_USERNAME=gasham
 ADMIN_PASSWORD=gasham1006   # change after first login from the admin panel
-FIREBASE_DATABASE_URL=https://chatog-94528-default-rtdb.firebaseio.com  # optional — this is the default
+FIREBASE_DATABASE_URL=https://whatsbotog-default-rtdb.firebaseio.com  # optional — this is the default
 WORKER_API_URL=https://your-worker.up.railway.app    # worker public URL
 WORKER_API_TOKEN=<long-random-secret>                # SAME on web + worker
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app      # optional
@@ -128,13 +128,13 @@ no `./data` folder and no persistent volume anywhere in the stack.
 ## Environment variables
 
 All configuration is env-driven — no hardcoded hosts, ports or URLs.
-Firebase defaults to the `chatog-94528` project configuration.
+Firebase defaults to the `whatsbotog` project configuration.
 
 | Variable | Where | Description |
 | --- | --- | --- |
 | `PORT` | web | HTTP port (default 3000; platform `PORT` used automatically) |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (default `gasham` / `gasham1006`) |
-| `FIREBASE_DATABASE_URL` (+ optional `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`) | web + worker | Firebase RTDB project (default `chatog-94528`) |
+| `ADMIN_PASSWORD` | web | Login password (default `gasham1006`) — password-only auth |
+| `FIREBASE_DATABASE_URL` (+ optional `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`) | web + worker | Firebase RTDB project (default `whatsbotog`) |
 | `FIREBASE_ENABLED` | web + worker | `true` (default) — `false` disables the realtime event mirror |
 | `WORKER_API_URL` | web | Worker public API URL (`https://worker.up.railway.app`) |
 | `WORKER_API_TOKEN` | web + worker | Shared secret — **must match** |

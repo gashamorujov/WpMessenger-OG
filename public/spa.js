@@ -400,13 +400,12 @@
           <div class="login-logo"><img src="/icon.png" alt="WpMessenger OG" /></div>
           <h1>WpMessenger OG</h1>
           <p class="sub">WhatsApp Web Management Panel</p>
-          <div class="field"><label>İstifadəçi adı</label><input class="input" name="username" autocomplete="username" required /></div>
-          <div class="field"><label>Şifrə</label><input class="input" type="password" name="password" autocomplete="current-password" required /></div>
+          <div class="field"><label>Şifrə</label><input class="input" type="password" name="password" autocomplete="current-password" placeholder="••••••••" required /></div>
           <button class="btn btn-primary btn-block btn-xl" type="submit">Daxil ol</button>
-          <p class="muted" style="margin-top:14px;text-align:center">Giriş məlumatları gizlidir — yalnız administrator tərəfindən təyin edilir</p>
+          <p class="muted" style="margin-top:14px;text-align:center">Şifrə gizlidir — yalnız səlahiyyətli istifadəçilər bilir</p>
         </form>
       </div>`;
-      setTimeout(() => { const i = $('.login-card input[name="username"]'); if (i) i.focus(); }, 50);
+      setTimeout(() => { const i = $('.login-card input[name="password"]'); if (i) i.focus(); }, 50);
     },
 
     /* ── dashboard ── */
@@ -914,7 +913,6 @@
         <h3>${ICONS.settings} Təhlükəsizlik — giriş məlumatları</h3>
         <form data-form="security-save">
           <div class="grid grid-2">
-            <div class="field"><label>Yeni istifadəçi adı</label><input class="input" name="username" value="${esc(this.state.user?.username || '')}" minlength="3" maxlength="50" autocomplete="username" required /></div>
             <div class="field"><label>Cari şifrə</label><input class="input" type="password" name="currentPassword" autocomplete="current-password" required /></div>
             <div class="field"><label>Yeni şifrə</label><input class="input" type="password" name="newPassword" minlength="6" autocomplete="new-password" required /></div>
             <div class="field"><label>Yeni şifrə (təkrar)</label><input class="input" type="password" name="newPassword2" minlength="6" autocomplete="new-password" required /></div>
@@ -1163,10 +1161,10 @@
     async handleForm(kind, form) {
       if (kind === 'login') {
         const data = Object.fromEntries(new FormData(form));
-        const res = await this.api('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+        const res = await this.api('/auth/login', { method: 'POST', body: JSON.stringify({ password: data.password }) });
         this.state.authed = true;
-        this.state.user = { username: res.username };
-        this.connectWS();
+        this.state.user = { username: res.username || 'admin' };
+        this.connectRealtime();
         location.hash = '#/dashboard';
         this.router();
         return;
@@ -1191,12 +1189,11 @@
           return;
         }
         try {
-          const res = await this.api('/auth/change-password', {
+          await this.api('/auth/change-password', {
             method: 'POST',
-            body: JSON.stringify({ currentPassword: data.currentPassword, username: data.username, newPassword: data.newPassword }),
+            body: JSON.stringify({ currentPassword: data.currentPassword, newPassword: data.newPassword }),
           });
-          this.state.user = { username: res.username };
-          this.toast('Giriş məlumatları dəyişdirildi — yenidən daxil olun', 'ok');
+          this.toast('Şifrə dəyişdirildi — yenidən daxil olun', 'ok');
           this.sessionExpired();
         } catch (e) { this.toast(e.message, 'err'); }
         return;

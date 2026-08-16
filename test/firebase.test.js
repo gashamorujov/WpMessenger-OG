@@ -1,18 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('firebase config defaults to the project config (chatog-94528)', () => {
+test('firebase config defaults to the project config (whatsbotog)', () => {
   const config = require('../lib/config');
   assert.equal(config.firebase.enabled, true);
-  assert.equal(config.firebase.databaseURL, 'https://chatog-94528-default-rtdb.firebaseio.com');
-  assert.equal(config.firebase.projectId, 'chatog-94528');
-  assert.equal(config.firebase.appId, '1:877401186095:web:04d181fbbf2aaebb64cbda');
+  assert.equal(config.firebase.databaseURL, 'https://whatsbotog-default-rtdb.firebaseio.com');
+  assert.equal(config.firebase.projectId, 'whatsbotog');
+  assert.equal(config.firebase.appId, '1:641852211328:web:b8c7e3c194a1538b896665');
 });
 
 test('firebase endpoint builds RTDB REST URLs', () => {
   const { endpoint } = require('../lib/firebase');
-  assert.equal(endpoint('wpm/events'), 'https://chatog-94528-default-rtdb.firebaseio.com/wpm/events.json');
-  assert.equal(endpoint('/wpm/events/'), 'https://chatog-94528-default-rtdb.firebaseio.com/wpm/events.json');
+  assert.equal(endpoint('wpm/events'), 'https://whatsbotog-default-rtdb.firebaseio.com/wpm/events.json');
+  assert.equal(endpoint('/wpm/events/'), 'https://whatsbotog-default-rtdb.firebaseio.com/wpm/events.json');
 });
 
 test('firebase publish is a safe no-op when disabled', async () => {

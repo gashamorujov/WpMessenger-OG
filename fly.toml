@@ -9,7 +9,7 @@ app = "wp-messenger-og"
 [env]
   PORT = "3000"
   ADMIN_USERNAME = "gasham"
-  FIREBASE_DATABASE_URL = "https://chatog-94528-default-rtdb.firebaseio.com"
+  FIREBASE_DATABASE_URL = "https://whatsbotog-default-rtdb.firebaseio.com"
   WORKER_API_URL = "https://wp-messenger-og-worker.fly.dev"
   WORKER_WS_URL = "wss://wp-messenger-og-worker.fly.dev"
 

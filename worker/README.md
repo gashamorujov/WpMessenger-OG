@@ -24,7 +24,7 @@ node server.js         # PORT=3100 default
 | --- | --- |
 | `PORT` | HTTP/WS port (default 3100) |
 | `WORKER_API_TOKEN` | Shared secret — **same as the web app** |
-| `FIREBASE_DATABASE_URL` | Firebase RTDB URL (default `chatog-94528` project) |
+| `FIREBASE_DATABASE_URL` | Firebase RTDB URL (default `whatsbotog` project) |
 | `FIREBASE_ENABLED` | `true` (default) |
 | `WA_PRESENCE_CHECK` / `WA_SKIP_UNREGISTERED` | Registration pre-check |
 | `DUPLICATE_SEND_TTL_MIN` | Duplicate-send guard TTL (minutes) |

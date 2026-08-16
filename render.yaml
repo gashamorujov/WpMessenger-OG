@@ -18,7 +18,7 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: FIREBASE_DATABASE_URL
-        value: https://chatog-94528-default-rtdb.firebaseio.com
+        value: https://whatsbotog-default-rtdb.firebaseio.com
       # Worker-in public URL-i: web paneldən /api/health-a baxıb worker ünvanını yazın
       - key: WORKER_API_URL
         value: https://wp-messenger-og-worker.onrender.com
@@ -38,6 +38,6 @@ services:
       - key: PORT
         value: 3100
       - key: FIREBASE_DATABASE_URL
-        value: https://chatog-94528-default-rtdb.firebaseio.com
+        value: https://whatsbotog-default-rtdb.firebaseio.com
       - key: WORKER_API_TOKEN
         sync: false
