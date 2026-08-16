@@ -2,6 +2,7 @@ import { json, fail } from '@/lib/api';
 import { authGuard } from '@/lib/auth';
 import { contactsRepo } from '@/lib/repositories';
 import { waClient } from '@/lib/waClientHelpers';
+import * as firebaseRealtime from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -34,6 +35,7 @@ export async function PUT(request, { params }) {
     contact = r.contact;
     waClient.mirrorContact(contact).catch(() => {});
   }
+  firebaseRealtime.publish('contacts:changed', {});
   return json({ ok: true, contact });
 }
 
@@ -41,5 +43,6 @@ export async function DELETE(_request, { params }) {
   if (!(await authGuard())) return fail('Unauthorized', 401);
   const { id } = await params;
   if (!(await contactsRepo.remove(id))) return fail('Kontakt tapılmadı', 404);
+  firebaseRealtime.publish('contacts:changed', {});
   return json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { json, fail } from '@/lib/api';
 import { authGuard } from '@/lib/auth';
 import { contactsRepo } from '@/lib/repositories';
+import * as firebaseRealtime from '@/lib/firebase';
 import { waClient } from '@/lib/waClientHelpers';
 
 export const dynamic = 'force-dynamic';
@@ -24,5 +25,6 @@ export async function POST(request) {
     else if (r.duplicate) summary.duplicates++;
     else summary.updated++;
   }
+  firebaseRealtime.publish('contacts:changed', {});
   return json(summary);
 }

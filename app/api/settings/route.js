@@ -2,6 +2,7 @@ import { json, fail } from '@/lib/api';
 import { authGuard } from '@/lib/auth';
 import { settingsRepo, SETTING_KEYS } from '@/lib/repositories';
 import config from '@/lib/config';
+import * as firebaseRealtime from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -46,5 +47,6 @@ export async function PUT(request) {
   }
   if (invalid.length) return fail(`Yanlış parametrlər: ${invalid.join(', ')}`);
   const [effective, all] = await Promise.all([settingsRepo.effective(), settingsRepo.getAll()]);
+  firebaseRealtime.publish('settings:changed', {});
   return json({ ok: true, effective, overrides: all });
 }

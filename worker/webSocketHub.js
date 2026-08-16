@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
 const config = require('./lib/config');
 const { makeLogger } = require('./lib/logger');
+const realtime = require('./lib/realtime');
 
 const LOG = makeLogger('WS');
 
@@ -86,6 +87,8 @@ class WebSocketHub {
         try { ws.send(msg); } catch {}
       }
     }
+    // Realtime mirror: also push the event through Firebase RTDB (fire-and-forget).
+    realtime.publish(type, data);
   }
 
   get size() {

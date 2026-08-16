@@ -59,6 +59,12 @@ const config = {
 
   // Realtime ticket TTL (seconds)
   wsTicketTtlSec: intEnv('WS_TICKET_TTL_SEC', 120),
+
+  // Firebase Realtime Database — realtime event mirror (REST, no SDK needed).
+  firebase: {
+    enabled: boolEnv('FIREBASE_ENABLED', true) && !!String(process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com').trim(),
+    databaseURL: process.env.FIREBASE_DATABASE_URL || 'https://chatog-94528-default-rtdb.firebaseio.com',
+  },
 };
 
 module.exports = config;

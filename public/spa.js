@@ -72,7 +72,7 @@
         this.state.authed = true;
         this.state.user = { username: me.username };
         this.router();
-        this.connectWS();
+        this.connectRealtime();
         this.fetchContactsAll().catch(() => {});
       } catch {
         this.state.authed = false;
@@ -85,8 +85,7 @@
       this.state.authed = false;
       this.state.user = null;
       this.state.overview = null;
-      if (this.state.ws) { try { this.state.ws.close(); } catch {} }
-      this.state.ws = null;
+      this.disconnectRealtime();
       this.router();
     },
 
@@ -102,6 +101,65 @@
       }
       if (!res.ok) throw new Error((data && data.error) || ('Xəta ' + res.status));
       return data;
+    },
+
+    /* ── realtime (Firebase RTDB primary, WebSocket fallback) ── */
+    disconnectRealtime() {
+      if (this._fbRef && this._fbOn) { try { this._fbRef.off('child_added', this._fbOn); } catch {} }
+      this._fbRef = null;
+      if (this.state.ws) { try { this.state.ws.close(); } catch {} }
+      this.state.ws = null;
+    },
+
+    async connectRealtime() {
+      this.disconnectRealtime();
+      if (!this.state.authed) return;
+      const cfg = window.__WPM_CONFIG__ || {};
+      if (cfg.firebase && cfg.firebase.databaseURL && this._fbOk !== false) {
+        const ok = await this.connectFirebase(cfg.firebase);
+        if (ok) return;
+      }
+      await this.connectWS();
+    },
+
+    connectFirebase(cfg) {
+      return new Promise((resolve) => {
+        let tries = 0;
+        const attempt = () => {
+          tries += 1;
+          const fb = window.firebase;
+          if (fb && fb.initializeApp && fb.database) {
+            try {
+              if (!this._fbApp) this._fbApp = fb.initializeApp(cfg, 'wpm');
+              const ref = fb.database(this._fbApp).ref('wpm/events').limitToLast(300);
+              this._fbOn = (snap) => {
+                const ev = snap.val();
+                if (!ev || !ev.type) return;
+                if (ev.ts && ev.ts < Date.now() - 10 * 60 * 1000) return; // ignore replays
+                this.onWs({ type: ev.type, data: ev.data });
+              };
+              this._fbErr = () => {
+                this._fbOk = false;
+                this.state.wsState = 'offline';
+                this.patchShell();
+                this.connectWS();
+              };
+              ref.on('child_added', this._fbOn, this._fbErr);
+              this._fbRef = ref;
+              this.state.wsState = 'online';
+              this.patchShell();
+              resolve(true);
+            } catch {
+              this._fbOk = false;
+              resolve(false);
+            }
+            return;
+          }
+          if (tries >= 40) { this._fbOk = false; resolve(false); }
+          else setTimeout(attempt, 250);
+        };
+        attempt();
+      });
     },
 
     /* ── websocket ── */
@@ -180,6 +238,13 @@
           break;
         }
         case 'stats':
+          this.refreshOverview(true);
+          break;
+        case 'settings:changed':
+          if (this.state.route === 'settings') this.loadSettings();
+          break;
+        case 'contacts:changed':
+          this.refreshContacts();
           this.refreshOverview(true);
           break;
         case 'hello':
@@ -965,8 +1030,7 @@
           try { await this.api('/auth/logout', { method: 'POST' }); } catch {}
           this.state.authed = false;
           this.state.user = null;
-          if (this.state.ws) { try { this.state.ws.close(); } catch {} }
-          this.state.ws = null;
+          this.disconnectRealtime();
           this.router();
           break;
         case 'theme':

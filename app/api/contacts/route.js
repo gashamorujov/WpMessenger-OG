@@ -2,6 +2,7 @@ import { json, fail } from '@/lib/api';
 import { authGuard } from '@/lib/auth';
 import { contactsRepo } from '@/lib/repositories';
 import { waClient } from '@/lib/waClientHelpers';
+import * as firebaseRealtime from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -24,6 +25,7 @@ export async function POST(request) {
   try { body = await request.json(); } catch { return fail('Yanlış sorğu formatı'); }
   const result = await contactsRepo.upsert({ name: body.name, phone: body.phone });
   if (!result.contact) return fail(result.reason || 'Kontakt yaradıla bilmədi');
+  firebaseRealtime.publish('contacts:changed', {});
   if (result.created) waClient.mirrorContact(result.contact).catch(() => {});
   return json(result, result.created ? 201 : 200);
 }

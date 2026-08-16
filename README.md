@@ -101,6 +101,24 @@ NEXT_PUBLIC_APP_URL=https://your-app.vercel.app      # optional
 docker compose up -d --build
 ```
 
+## Realtime (Firebase Realtime Database)
+
+All realtime events (WhatsApp status/QR/pair, job progress, contacts and
+settings changes) are mirrored to **Firebase Realtime Database** under
+`wpm/events` — the browser listens with the Firebase JS SDK, so every panel
+view updates live without polling or WebSocket infrastructure.
+
+- The worker mirrors every WebSocket hub broadcast to Firebase (REST).
+- The web app publishes `contacts:changed` / `settings:changed` events.
+- The SPA uses Firebase when configured and falls back to the worker
+  WebSocket hub automatically (`FIREBASE_ENABLED=false` or unreachable DB).
+- Event history is pruned automatically (worker), keeping the feed bounded.
+
+> ⚠️ This integration uses the provided public client config over REST, so
+> the Realtime Database rules must allow public read/write for `wpm/*`.
+> If your rules are locked down, either open them (demo) or the app keeps
+> working via the WebSocket fallback.
+
 ## Environment variables
 
 All configuration is env-driven — no hardcoded hosts, ports or URLs.
@@ -111,6 +129,8 @@ URLs are auto-derived from platform env vars (`RAILWAY_PUBLIC_DOMAIN`,
 | --- | --- | --- |
 | `PORT` | web | HTTP port (default 3000; platform `PORT` used automatically) |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (default `gasham` / `gasham1006`) |
+| `FIREBASE_DATABASE_URL` (+ optional `FIREBASE_API_KEY` etc.) | web + worker | Realtime event mirror; defaults to `chatog-94528` project |
+| `FIREBASE_ENABLED` | web + worker | `true` (default) — `false` uses the WebSocket hub fallback |
 | `WORKER_API_URL` | web | Worker public API URL (`https://worker.up.railway.app`) |
 | `WORKER_API_TOKEN` | web + worker | Shared secret — **must match** |
 | `WORKER_WS_URL` | web | Realtime WS URL (auto-derived `wss://` from API URL) |
