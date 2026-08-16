@@ -45,10 +45,23 @@ npm start
 
 Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
 
+### Forgotten admin credentials
+
+On the machine hosting the database (VPS shell, Railway console, or
+`docker compose exec web sh`), run:
+
+```bash
+ADMIN_USERNAME=gasham ADMIN_PASSWORD=<new-password> npm run reset-admin
+```
+
+This resets the admin user to `ADMIN_USERNAME` / `ADMIN_PASSWORD` (defaults:
+`gasham` / `gasham1006`) and invalidates every active session.
+
 > First login uses **`gasham` / `gasham1006`** by default (configurable via
-> `ADMIN_USERNAME` / `ADMIN_PASSWORD`). Change the credentials right after
-> first login from **Settings → Təhlükəsizlik** — changing them invalidates
-> all active sessions and requires re-login.
+> `ADMIN_USERNAME` / `ADMIN_PASSWORD`). Credentials are **never shown on the
+> login page**. Change them right after first login from
+> **Settings → Təhlükəsizlik** — changing them invalidates all active sessions
+> and requires re-login.
 
 ## Deploy matrix
 

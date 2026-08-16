@@ -338,7 +338,7 @@
           <div class="field"><label>İstifadəçi adı</label><input class="input" name="username" autocomplete="username" required /></div>
           <div class="field"><label>Şifrə</label><input class="input" type="password" name="password" autocomplete="current-password" required /></div>
           <button class="btn btn-primary btn-block btn-xl" type="submit">Daxil ol</button>
-          <p class="muted" style="margin-top:14px;text-align:center">Defolt giriş: gasham / gasham1006 · İlk girişdən sonra Settings → Təhlükəsizlik bölməsindən dəyişin</p>
+          <p class="muted" style="margin-top:14px;text-align:center">Giriş məlumatları gizlidir — yalnız administrator tərəfindən təyin edilir</p>
         </form>
       </div>`;
       setTimeout(() => { const i = $('.login-card input[name="username"]'); if (i) i.focus(); }, 50);

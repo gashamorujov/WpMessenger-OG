@@ -6,9 +6,9 @@ import { sessionsRepo } from '@/lib/repositories';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-export async function POST() {
+export async function POST(request) {
   const token = await authGuard();
   if (!token) return json({ ok: true });
   await sessionsRepo.destroy(token);
-  return clearSessionCookie(NextResponse.json({ ok: true }));
+  return clearSessionCookie(NextResponse.json({ ok: true }), request);
 }

@@ -17,10 +17,11 @@ export async function POST(request) {
   const { username, password } = body || {};
   if (!username || !password) return fail('İstifadəçi adı və şifrə tələb olunur');
 
-  // First login: bootstrap the admin from ADMIN_USERNAME/ADMIN_PASSWORD.
-  const ensured = await usersRepo.ensureAdmin();
-  if (ensured && ensured.created === false) {
-    return fail(ensured.reason, 503);
+  // First login: bootstrap the admin from ADMIN_USERNAME/ADMIN_PASSWORD (or defaults).
+  try {
+    await usersRepo.ensureAdmin();
+  } catch (e) {
+    return fail('Verilənlər bazasına yazıla bilmir: ' + e.message + '. Persistent database (PostgreSQL) təyin edin.', 500);
   }
 
   const ok = await usersRepo.verify(username, password);
@@ -28,5 +29,5 @@ export async function POST(request) {
 
   const token = await sessionsRepo.create(request.headers.get('user-agent') || '', clientIp(request));
   const res = NextResponse.json({ token, username: String(username).trim(), version: config.version });
-  return setSessionCookie(res, token);
+  return setSessionCookie(res, token, request);
 }
