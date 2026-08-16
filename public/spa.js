@@ -36,10 +36,42 @@
     return (map[s] || 'gray');
   };
 
+  const setLoading = (btn, on) => { if (!btn) return; btn.classList.toggle('loading', !!on); btn.disabled = !!on; };
+
+  const svg = (body, size) =>
+    `<svg class="ic-svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
   const ICONS = {
-    dash: '📊', wa: '📱', contacts: '👥', send: '✉️', history: '🕘', jobs: '⚙️', settings: '🔧',
-    logout: '🚪', theme: '🌓', plus: '➕', edit: '✏️', trash: '🗑', back: '←', go: '🚀', stop: '🛑',
-    info: 'ℹ️', refresh: '🔄', search: '🔍', copy: '📋', check: '✅', x: '❌', warn: '⚠️', clock: '⏱',
+    dash: svg('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
+    wa: svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    contacts: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+    send: svg('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>'),
+    history: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+    jobs: svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'),
+    settings: svg('<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>'),
+    logout: svg('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'),
+    sun: svg('<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'),
+    moon: svg('<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'),
+    plus: svg('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+    edit: svg('<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>'),
+    trash: svg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'),
+    back: svg('<polyline points="15 18 9 12 15 6"/>'),
+    forward: svg('<polyline points="9 18 15 12 9 6"/>'),
+    go: svg('<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>'),
+    stop: svg('<rect x="6" y="6" width="12" height="12" rx="2"/>'),
+    info: svg('<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+    refresh: svg('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>'),
+    search: svg('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'),
+    copy: svg('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+    check: svg('<polyline points="20 6 9 17 4 12"/>'),
+    x: svg('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+    warn: svg('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'),
+    clock: svg('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'),
+    paperclip: svg('<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>'),
+    retry: svg('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>'),
+    list: svg('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
+    globe: svg('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>'),
+    phone: svg('<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/>'),
+    qr: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 20h1v1h-1z"/>'),
   };
 
   const App = {
@@ -66,7 +98,7 @@
     /* ── bootstrap ── */
     async init() {
       document.documentElement.setAttribute('data-theme', this.state.theme);
-      window.addEventListener('hashchange', () => this.router());
+      window.addEventListener('popstate', () => this.router());
       try {
         const me = await this.api('/auth/me');
         this.state.authed = true;
@@ -199,19 +231,19 @@
           if (this.state.connect.tab === 'qr' && (!this.state.connect.pending || this.state.connect.pending === data.phone)) {
             this.state.connect.qr = data.qr;
           }
-          this.renderConnect();
+          if (this.state.route === 'connect') this.renderConnect();
           break;
         case 'wa:pair':
           if (this.state.connect.pending === data.phone) {
             this.state.connect.pair = data.code;
-            this.renderConnect();
+            if (this.state.route === 'connect') this.renderConnect();
           }
           break;
         case 'wa:error':
           this.toast((data && data.message) || 'WhatsApp xətası', 'err');
           break;
         case 'wa:connected':
-          this.toast(`✅ WhatsApp hesabı qoşuldu (${data.phone})`, 'ok');
+          this.toast(`WhatsApp hesabı qoşuldu (${data.phone})`, 'ok');
           this.state.connect.qr = null;
           this.state.connect.pair = null;
           this.state.connect.pending = null;
@@ -229,8 +261,8 @@
           this.patchJobViews(data);
           if (prev && prev.state !== data.state && ['completed', 'cancelled', 'interrupted'].includes(data.state)) {
             this.toast(
-              data.state === 'completed' ? `✅ İş tamamlandı — ${data.successCount} uğurlu` :
-              data.state === 'cancelled' ? '🛑 Göndəriş dayandırıldı' : '🔄 Bağlantı kəsildi — iş bərpaya hazırdır',
+              data.state === 'completed' ? `İş tamamlandı — ${data.successCount} uğurlu` :
+              data.state === 'cancelled' ? 'Göndəriş dayandırıldı' : 'Bağlantı kəsildi — iş bərpaya hazırdır',
               data.state === 'completed' ? 'ok' : 'warn'
             );
           }
@@ -298,17 +330,37 @@
       } catch (e) { this.toast(e.message, 'err'); }
     },
 
-    /* ── routing ── */
+    /* ── routing (real paths: /, /connect, /contacts, /send, /history, /processes, /settings) ── */
+    ROUTE_PATHS: {
+      dashboard: '/', connect: '/connect', contacts: '/contacts',
+      send: '/send', history: '/history', jobs: '/processes', settings: '/settings',
+    },
+    ROUTE_TITLES: {
+      dashboard: 'Başlanğıc', connect: 'WhatsApp Qoşulma', contacts: 'Kontaktlar',
+      send: 'Göndər', history: 'Tarixçə', jobs: 'Proseslər', settings: 'Parametrlər',
+    },
+    routeFromPath(path) {
+      const p = String(path || location.pathname).replace(/\/+$/, '') || '/';
+      if (p === '/') return 'dashboard';
+      const key = p.replace(/^\//, '');
+      return { connect: 'connect', contacts: 'contacts', send: 'send', history: 'history', processes: 'jobs', settings: 'settings' }[key] || 'dashboard';
+    },
+    pathFor(route) { return this.ROUTE_PATHS[route] || '/'; },
+    navigateTo(path, replace) {
+      const target = String(path || '/');
+      if (location.pathname !== target) (replace ? history.replaceState : history.pushState).call(history, null, '', target);
+      this.router();
+    },
     router() {
-      const hash = (location.hash || '#/dashboard').replace(/^#/, '');
-      const parts = hash.split('/').filter(Boolean);
-      const route = parts[0] || 'dashboard';
+      const raw = location.pathname.replace(/\/+$/, '') || '/';
+      const route = this.routeFromPath(raw);
+      if (raw !== this.pathFor(route)) history.replaceState(null, '', this.pathFor(route));
       if (!this.state.authed) {
         this.state.route = route;
         return this.renderLogin();
       }
-      if (route === 'login') { location.hash = '#/dashboard'; return; }
       this.state.route = route;
+      document.title = (this.ROUTE_TITLES[route] || 'Başlanğıc') + ' — WpMessenger OG';
       this.renderShell();
       const loaders = {
         dashboard: () => this.refreshOverview(),
@@ -321,14 +373,13 @@
       };
       const load = loaders[route];
       if (load) load();
-      else { location.hash = '#/dashboard'; }
     },
 
     /* ── shell ── */
     renderShell() {
       const wa = this.state.overview?.whatsapp || { status: 'disconnected', connected: 0, sessions: [] };
       const active = (this.state.overview?.activeCount) || 0;
-      const title = { dashboard: 'Dashboard', connect: 'WhatsApp Qoşulma', contacts: 'Kontaktlar', send: 'Mesaj Göndər', jobs: 'Aktiv Proseslər', history: 'Tarixçə', settings: 'Settings' }[this.state.route] || 'Dashboard';
+      const title = { dashboard: 'Başlanğıc', connect: 'WhatsApp Qoşulma', contacts: 'Kontaktlar', send: 'Göndər', jobs: 'Proseslər', history: 'Tarixçə', settings: 'Parametrlər' }[this.state.route] || 'Başlanğıc';
       const wsDot = this.state.wsState === 'online' ? '<span class="dot ok"></span>Realtime' : '<span class="dot bad"></span>Offline';
       $('#app').innerHTML = `
       <div class="shell">
@@ -338,13 +389,13 @@
             <div><b>WpMessenger OG</b><small>WhatsApp Panel</small></div>
           </div>
           <nav class="nav">
-            ${this.navItem('dashboard', 'dash', 'Dashboard')}
+            ${this.navItem('dashboard', 'dash', 'Başlanğıc')}
             ${this.navItem('connect', 'wa', 'WhatsApp Qoşul')}
             ${this.navItem('contacts', 'contacts', 'Kontaktlar')}
-            ${this.navItem('send', 'send', 'Mesaj Göndər')}
+            ${this.navItem('send', 'send', 'Göndər')}
             ${this.navItem('history', 'history', 'Tarixçə')}
-            ${this.navItem('jobs', 'jobs', 'Aktiv Proseslər' + (active ? ' <span class="badge amber">' + active + '</span>' : ''))}
-            ${this.navItem('settings', 'settings', 'Settings')}
+            ${this.navItem('jobs', 'jobs', 'Proseslər' + (active ? ' <span class="badge amber">' + active + '</span>' : ''))}
+            ${this.navItem('settings', 'settings', 'Parametrlər')}
           </nav>
           <div class="foot">
             <div class="status-pill"><span class="dot ${wa.connected ? 'ok' : 'bad'}"></span>WhatsApp: ${esc(stateLabel[wa.status] || wa.status)}</div>
@@ -355,7 +406,7 @@
           <header class="topbar">
             <h2>${esc(title)}</h2>
             <div class="wa-pill"><span class="dot ${wa.connected ? 'ok' : wa.status === 'connecting' || wa.status === 'reconnecting' ? 'warn' : 'bad'}"></span>${wa.connected ? 'Qoşuldu' : esc(stateLabel[wa.status] || 'Bağlantı yoxdur')}</div>
-            <button class="icon-btn" data-action="theme" title="Dark/Light">${ICONS.theme}</button>
+            <button class="icon-btn" data-action="theme" title="Dark/Light">${this.state.theme === 'dark' ? ICONS.sun : ICONS.moon}</button>
             <button class="icon-btn" data-action="logout" title="Çıxış">${ICONS.logout}</button>
           </header>
           <main class="content" id="view"></main>
@@ -388,7 +439,7 @@
       const active = this.state.overview?.activeCount || 0;
       for (const el of actives) {
         const label = el.querySelector('span:last-child');
-        if (label) label.innerHTML = active ? 'Aktiv Proseslər <span class="badge amber">' + active + '</span>' : 'Aktiv Proseslər';
+        if (label) label.innerHTML = active ? 'Proseslər <span class="badge amber">' + active + '</span>' : 'Proseslər';
       }
     },
 
@@ -416,39 +467,39 @@
       const st = wa.status || 'disconnected';
       const sessionsHtml = (wa.sessions || []).map((s) =>
         `<div class="job-row"><div class="head"><b>${esc(s.name || s.phone)}</b><span class="badge ${stateBadge(s.status)}">${esc(stateLabel[s.status] || s.status)}</span><span class="mono muted">${esc(s.phone)}</span></div>` +
-        `<div class="meta"><span>${s.status === 'connected' ? '🟢 Bağlı' : ''}</span></div></div>`
+        `<div class="meta"><span>${s.status === 'connected' ? 'Bağlı' : ''}</span></div></div>`
       ).join('') || '<div class="empty">Heç bir WhatsApp hesabı qoşulmayıb</div>';
       const activeJobs = (ov.activeJobs || []).slice(0, 5).map((j) => this.jobCard(j)).join('') || '<div class="empty">Aktiv proses yoxdur</div>';
 
       $('#view').innerHTML = `
       <div class="grid grid-4">
-        <div class="stat green"><div class="ic">🟢</div><div><div class="val">${wa.connected ? 'Qoşuldu' : esc(stateLabel[st] || st)}</div><div class="lbl">WhatsApp Status</div></div></div>
-        <div class="stat blue"><div class="ic">👥</div><div><div class="val">${ov.contactsCount}</div><div class="lbl">Kontaktlar</div></div></div>
-        <div class="stat amber"><div class="ic">📨</div><div><div class="val">${ov.today.recipients}</div><div class="lbl">Bu gün göndərilən</div></div></div>
-        <div class="stat"><div class="ic">✅</div><div><div class="val">${ov.today.success}</div><div class="lbl">Uğurlu</div></div></div>
-        <div class="stat red"><div class="ic">❌</div><div><div class="val">${ov.today.fail}</div><div class="lbl">Xəta</div></div></div>
+        <div class="stat green"><div class="ic">${ICONS.wa}</div><div><div class="val">${wa.connected ? 'Qoşuldu' : esc(stateLabel[st] || st)}</div><div class="lbl">WhatsApp Status</div></div></div>
+        <div class="stat blue"><div class="ic">${ICONS.contacts}</div><div><div class="val">${ov.contactsCount}</div><div class="lbl">Kontaktlar</div></div></div>
+        <div class="stat amber"><div class="ic">${ICONS.send}</div><div><div class="val">${ov.today.recipients}</div><div class="lbl">Bu gün göndərilən</div></div></div>
+        <div class="stat"><div class="ic">${ICONS.check}</div><div><div class="val">${ov.today.success}</div><div class="lbl">Uğurlu</div></div></div>
+        <div class="stat red"><div class="ic">${ICONS.x}</div><div><div class="val">${ov.today.fail}</div><div class="lbl">Xəta</div></div></div>
         <div class="stat"><div class="ic">${ICONS.clock}</div><div><div class="val">${ov.today.jobs}</div><div class="lbl">Bugünkü göndərişlər</div></div></div>
       </div>
 
       <div class="card">
         <h3>${ICONS.wa} WhatsApp hesabları</h3>
         ${sessionsHtml}
-        <div style="margin-top:14px"><button class="btn btn-primary" data-action="goto" data-href="#/connect">${ICONS.wa} WhatsApp-a qoşul</button></div>
+        <div style="margin-top:14px"><button class="btn btn-primary" data-action="goto" data-href="/connect">${ICONS.wa} WhatsApp-a qoşul</button></div>
       </div>
 
       <div class="card">
         <h3>${ICONS.send} Əsas düymələr</h3>
         <div class="quick-actions">
-          <button class="btn btn-primary" data-action="goto" data-href="#/connect">${ICONS.wa} WhatsApp-a qoşul</button>
-          <button class="btn" data-action="goto" data-href="#/contacts">${ICONS.contacts} Kontaktlar</button>
+          <button class="btn btn-primary" data-action="goto" data-href="/connect">${ICONS.wa} WhatsApp-a qoşul</button>
+          <button class="btn" data-action="goto" data-href="/contacts">${ICONS.contacts} Kontaktlar</button>
           <button class="btn" data-action="open-add-contact">${ICONS.plus} Kontakt əlavə et</button>
-          <button class="btn" data-action="goto" data-href="#/send">${ICONS.send} Mesaj göndər</button>
-          <button class="btn btn-ghost" data-action="goto" data-href="#/history">${ICONS.history} Tarixçə</button>
+          <button class="btn" data-action="goto" data-href="/send">${ICONS.send} Mesaj göndər</button>
+          <button class="btn btn-ghost" data-action="goto" data-href="/history">${ICONS.history} Tarixçə</button>
         </div>
       </div>
 
       <div class="card">
-        <div class="section-head"><h3 style="margin:0">${ICONS.jobs} Aktiv proseslər</h3><a href="#/jobs">Hamısı →</a></div>
+        <div class="section-head"><h3 style="margin:0">${ICONS.jobs} Aktiv proseslər</h3><a href="/processes" data-action="goto" data-href="/processes">Hamısı ${ICONS.forward}</a></div>
         ${activeJobs}
       </div>`;
     },
@@ -462,7 +513,7 @@
       if (conn.length) {
         body = conn.map((s) => `
           <div class="job-row">
-            <div class="head"><b>${esc(s.name || s.phone)}</b><span class="badge green">🟢 ${esc(stateLabel.connected)}</span><span class="mono muted">${esc(s.phone)}</span></div>
+            <div class="head"><b>${esc(s.name || s.phone)}</b><span class="badge green">${esc(stateLabel.connected)}</span><span class="mono muted">${esc(s.phone)}</span></div>
             <div class="meta"><span>Qoşulma vaxtı: ${fmtDate(s.connectedAt)}</span></div>
             <div style="margin-top:10px"><button class="btn btn-danger btn-sm" data-action="wa-disconnect" data-phone="${esc(s.phone)}">${ICONS.logout} Çıxış et</button></div>
           </div>`).join('');
@@ -515,7 +566,7 @@
       $('#view').innerHTML = `
       <div class="section-head">
         <div class="filters">
-          <input class="input" id="contact-q" placeholder="${ICONS.search} Ad və ya nömrə ilə axtar..." value="${esc(c.q)}" />
+          <input class="input" id="contact-q" placeholder="Ad və ya nömrə ilə axtar..." value="${esc(c.q)}" />
           <select class="select" id="contact-wa">
             <option value="all" ${c.waStatus === 'all' ? 'selected' : ''}>Bütün statuslar</option>
             <option value="yes" ${c.waStatus === 'yes' ? 'selected' : ''}>WhatsApp-da</option>
@@ -533,9 +584,9 @@
         </table>
       </div>
       <div class="pager">
-        <button class="btn btn-ghost btn-sm" data-action="contacts-page" data-page="${c.page - 1}" ${c.page <= 1 ? 'disabled' : ''}>← Əvvəl</button>
+        <button class="btn btn-ghost btn-sm" data-action="contacts-page" data-page="${c.page - 1}" ${c.page <= 1 ? 'disabled' : ''}>${ICONS.back} Əvvəl</button>
         <span>${c.page} / ${c.pages} (${c.total} kontakt)</span>
-        <button class="btn btn-ghost btn-sm" data-action="contacts-page" data-page="${c.page + 1}" ${c.page >= c.pages ? 'disabled' : ''}>Sonraki →</button>
+        <button class="btn btn-ghost btn-sm" data-action="contacts-page" data-page="${c.page + 1}" ${c.page >= c.pages ? 'disabled' : ''}>Sonrakı ${ICONS.forward}</button>
       </div>`;
     },
 
@@ -545,7 +596,7 @@
       $('#app').insertAdjacentHTML('beforeend', `
       <div class="modal-back" data-action="close-modal">
         <div class="modal" data-stop="1">
-          <h3>${contact.id ? '✏️ Kontaktı düzəliş et' : '➕ Kontakt əlavə et'}</h3>
+          <h3>${contact.id ? ICONS.edit + ' Kontaktı düzəliş et' : ICONS.plus + ' Kontakt əlavə et'}</h3>
           <form data-form="contact-save">
             <input type="hidden" name="id" value="${contact.id || ''}" />
             <div class="field"><label>Ad</label><input class="input" name="name" required maxlength="80" value="${esc(contact.name || '')}" /></div>
@@ -592,10 +643,10 @@
       <div class="card">
         <div class="step-title"><span class="badge green">1</span> Alıcı seçimi <span class="muted">(${selectedCount} seçilib)</span></div>
         <div class="radio-cards">
-          ${this.radioCard('single', '📱', 'Bir nömrə', 'Birbaşa nömrə daxil edin', s)}
-          ${this.radioCard('list', '📋', 'Bir neçə nömrə', 'Siyahı şəklində', s)}
-          ${this.radioCard('contacts', '👥', 'Kontaktlardan seç', 'Bazadan seçim', s)}
-          ${this.radioCard('all', '🌐', 'Bütün kontaktlar', `Hamısı (${c.length})`, s)}
+          ${this.radioCard('single', ICONS.phone, 'Bir nömrə', 'Birbaşa nömrə daxil edin', s)}
+          ${this.radioCard('list', ICONS.list, 'Bir neçə nömrə', 'Siyahı şəklində', s)}
+          ${this.radioCard('contacts', ICONS.contacts, 'Kontaktlardan seç', 'Bazadan seçim', s)}
+          ${this.radioCard('all', ICONS.globe, 'Bütün kontaktlar', `Hamısı (${c.length})`, s)}
         </div>
 
         <div class="field hidden" id="f-single"><label>Telefon nömrəsi</label><input class="input" id="send-phone" placeholder="0503482690" value="${esc(s.phone)}" /></div>
@@ -623,14 +674,14 @@
         <div class="field hidden" id="f-caption"><label>Caption (media ilə birlikdə)</label><input class="input" id="send-caption" value="${esc(s.caption)}" /></div>
 
         <div class="steps" style="margin-top:20px">
-          <button class="btn btn-primary btn-xl" data-action="send-preview">${ICONS.go} Preview →</button>
+          <button class="btn btn-primary btn-xl" data-action="send-preview">${ICONS.go} Preview</button>
         </div>
       </div>`;
       this.syncSendInputs();
     },
 
     radioCard(mode, ic, label, sub, s) {
-      return `<div class="radio-card ${s.mode === mode ? 'selected' : ''}" data-action="send-mode" data-mode="${mode}"><div style="font-size:20px">${ic}</div>${label}<small>${esc(sub)}</small></div>`;
+      return `<div class="radio-card ${s.mode === mode ? 'selected' : ''}" data-action="send-mode" data-mode="${mode}"><div class="radio-ic">${ic}</div>${label}<small>${esc(sub)}</small></div>`;
     },
 
     syncSendInputs() {
@@ -676,11 +727,11 @@
     renderSendPreview() {
       const s = this.state.send;
       const recs = s.previewPhones || [];
-      const fileHtml = s.file ? `<div class="file-chip">📎 <b>${esc(s.file.name)}</b> <span class="muted">(${(s.file.size / 1024).toFixed(0)} KB)</span></div>` : '';
+      const fileHtml = s.file ? `<div class="file-chip">${ICONS.paperclip} <b>${esc(s.file.name)}</b> <span class="muted">(${(s.file.size / 1024).toFixed(0)} KB)</span></div>` : '';
       const msgHtml = s.file ? fileHtml : `<div class="msg">${esc(s.text)}</div>`;
       $('#view').innerHTML = `
       <div class="card">
-        <div class="step-title">📨 Mesaj göndərilməyə hazırdır</div>
+        <div class="step-title">${ICONS.send} Mesaj göndərilməyə hazırdır</div>
         <div class="preview-box">
           <div><b>Alıcılar: ${recs.length}</b></div>
           <div class="recs">${recs.map((r) => `<div>${esc(r.name || '')} ${esc(r.phone)}</div>`).join('')}</div>
@@ -702,20 +753,20 @@
       const wait = job.total - job.done;
       $('#view').innerHTML = `
       <div class="card">
-        <div class="step-title">📨 Göndərilir... <span class="badge ${stateBadge(job.state)}">${esc(stateLabel[job.state] || job.state)}</span></div>
+        <div class="step-title">${ICONS.send} Göndərilir... <span class="badge ${stateBadge(job.state)}">${esc(stateLabel[job.state] || job.state)}</span></div>
         <div style="font-size:22px;font-weight:800;margin-bottom:10px">${job.done} / ${job.total}</div>
         <div class="progress"><span style="width:${done ? 100 : pct}%"></span></div>
         <div class="counts">
-          <span class="ok">✅ Uğurlu: ${job.successCount}</span>
-          <span class="bad">❌ Xəta: ${job.failCount}</span>
-          <span class="skp">⏭ Atlanılan: ${job.skipCount}</span>
+          <span class="ok">Uğurlu: ${job.successCount}</span>
+          <span class="bad">Xəta: ${job.failCount}</span>
+          <span class="skp">Atlanılan: ${job.skipCount}</span>
           <span class="muted">Gözləyir: ${wait}</span>
         </div>
         ${!done ? `<div style="margin-top:18px"><button class="btn btn-danger btn-xl btn-block" data-action="job-cancel" data-id="${job.id}">${ICONS.stop} Göndərişi dayandır</button></div>`
         : `<div style="margin-top:18px" class="steps">
-            ${job.failCount > 0 && job.state === 'completed' ? `<button class="btn" data-action="job-retry" data-id="${job.id}">🔁 Uğursuzları təkrar göndər</button>` : ''}
-            <button class="btn btn-ghost" data-action="goto" data-href="#/history">${ICONS.history} Tarixçə</button>
-            <button class="btn btn-primary" data-action="goto" data-href="#/send">${ICONS.send} Yeni mesaj</button>
+            ${job.failCount > 0 && job.state === 'completed' ? `<button class="btn" data-action="job-retry" data-id="${job.id}">${ICONS.retry} Uğursuzları təkrar göndər</button>` : ''}
+            <button class="btn btn-ghost" data-action="goto" data-href="/history">${ICONS.history} Tarixçə</button>
+            <button class="btn btn-primary" data-action="goto" data-href="/send">${ICONS.send} Yeni mesaj</button>
           </div>`}
       </div>`;
     },
@@ -723,7 +774,7 @@
     async sendGo() {
       const s = this.state.send;
       const btn = $('[data-action="send-go"]');
-      if (btn) { btn.disabled = true; btn.textContent = 'Göndərilir...'; }
+      if (btn) setLoading(btn, true);
       try {
         const fd = new FormData();
         fd.append('recipientsMode', s.mode);
@@ -744,7 +795,7 @@
       } catch (e) {
         this.toast(e.message, 'err');
       } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '🚀 MESAJI GÖNDƏR'; }
+        if (btn) setLoading(btn, false);
       }
     },
 
@@ -759,7 +810,7 @@
 
     renderJobs() {
       const jobs = Object.values(this.state.jobs).filter((j) => ['running', 'interrupted'].includes(j.state));
-      const html = jobs.length ? jobs.map((j) => this.jobCard(j, true)).join('') : '<div class="empty">Aktiv proses yoxdur 🎉</div>';
+      const html = jobs.length ? jobs.map((j) => this.jobCard(j, true)).join('') : '<div class="empty">Aktiv proses yoxdur</div>';
       $('#view').innerHTML = `
       <div class="section-head">
         <h3 style="margin:0">${ICONS.jobs} Aktiv göndərişlər (${jobs.length})</h3>
@@ -771,8 +822,8 @@
     jobCard(j, withActions) {
       const pct = j.total ? Math.round((j.done / j.total) * 100) : 0;
       const done = ['completed', 'cancelled', 'interrupted'].includes(j.state);
-      const msgPreview = j.payload?.text ? (j.payload.text.length > 140 ? j.payload.text.slice(0, 140) + '…' : j.payload.text) : (j.payload?.fileName ? '📎 ' + j.payload.fileName : (j.payload?.caption || 'Media mesajı'));
-      const typeLabel = { text: '📝 Mətn', image: '🖼 Şəkil', video: '🎬 Video', audio: '🎵 Audio', voice: '🎙 Səs', document: '📄 Sənəd', sticker: '😀 Stiker', gif: '🎞 GIF', contact: '📇 Kontakt', location: '📍 Məkan' }[j.type] || j.type;
+      const msgPreview = j.payload?.text ? (j.payload.text.length > 140 ? j.payload.text.slice(0, 140) + '…' : j.payload.text) : (j.payload?.fileName ? 'Fayl: ' + j.payload.fileName : (j.payload?.caption || 'Media mesajı'));
+      const typeLabel = { text: 'Mətn', image: 'Şəkil', video: 'Video', audio: 'Audio', voice: 'Səs', document: 'Sənəd', sticker: 'Stiker', gif: 'GIF', contact: 'Kontakt', location: 'Məkan' }[j.type] || j.type;
       return `
       <div class="job-row">
         <div class="head">
@@ -785,14 +836,14 @@
         <div class="progress ${done ? '' : ''}"><span style="width:${done ? 100 : pct}%"></span></div>
         <div class="counts">
           <span class="muted">${j.done}/${j.total}</span>
-          <span class="ok">✅ ${j.successCount}</span>
-          <span class="bad">❌ ${j.failCount}</span>
-          <span class="skp">⏭ ${j.skipCount}</span>
+          <span class="ok">${j.successCount}</span>
+          <span class="bad">${j.failCount}</span>
+          <span class="skp">${j.skipCount}</span>
         </div>
         <div class="msg-preview">${esc(msgPreview)}</div>
         <div class="meta">
           <span>Müddət: ${fmtDur(j.startedAt, j.finishedAt || j.updatedAt)}</span>
-          <a href="#/history" data-action="goto" data-href="#/history">Tarixçə →</a>
+          <a href="/history" data-action="goto" data-href="/history">Tarixçə ${ICONS.forward}</a>
         </div>
       </div>`;
     },
@@ -810,7 +861,7 @@
     renderHistory() {
       const h = this.state.history;
       const rows = h.items.map((j) => {
-        const typeLabel = { text: '📝', image: '🖼', video: '🎬', audio: '🎵', voice: '🎙', document: '📄', sticker: '😀', gif: '🎞' }[j.type] || '📨';
+        const typeLabel = { text: 'Mətn', image: 'Şəkil', video: 'Video', audio: 'Audio', voice: 'Səs', document: 'Sənəd', sticker: 'Stiker', gif: 'GIF' }[j.type] || 'Mesaj';
         const msgPreview = j.payload?.text ? (j.payload.text.length > 60 ? j.payload.text.slice(0, 60) + '…' : j.payload.text) : (j.payload?.fileName || 'Media');
         return `<tr>
           <td>${fmtDate(j.createdAt)}</td>
@@ -838,14 +889,14 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Tarix</th><th>Alıcı</th><th>✅</th><th>❌</th><th>⏭</th><th>Status</th><th>Mesaj</th><th></th></tr></thead>
+          <thead><tr><th>Tarix</th><th>Alıcı</th><th>Uğurlu</th><th>Xəta</th><th>Atlanılan</th><th>Status</th><th>Mesaj</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
       <div class="pager">
-        <button class="btn btn-ghost btn-sm" data-action="history-page" data-page="${h.page - 1}" ${h.page <= 1 ? 'disabled' : ''}>← Əvvəl</button>
+        <button class="btn btn-ghost btn-sm" data-action="history-page" data-page="${h.page - 1}" ${h.page <= 1 ? 'disabled' : ''}>${ICONS.back} Əvvəl</button>
         <span>${h.page} / ${h.pages} (${h.total})</span>
-        <button class="btn btn-ghost btn-sm" data-action="history-page" data-page="${h.page + 1}" ${h.page >= h.pages ? 'disabled' : ''}>Sonraki →</button>
+        <button class="btn btn-ghost btn-sm" data-action="history-page" data-page="${h.page + 1}" ${h.page >= h.pages ? 'disabled' : ''}>Sonrakı ${ICONS.forward}</button>
       </div>`;
     },
 
@@ -860,19 +911,19 @@
         $('#app').insertAdjacentHTML('beforeend', `
         <div class="modal-back" data-action="close-modal">
           <div class="modal" data-stop="1">
-            <h3>📨 İş #${job.id.slice(0, 8)}</h3>
+            <h3>${ICONS.send} İş #${job.id.slice(0, 8)}</h3>
             <div class="counts">
-              <span class="ok">✅ ${job.successCount}</span><span class="bad">❌ ${job.failCount}</span><span class="skp">⏭ ${job.skipCount}</span>
+              <span class="ok">${job.successCount}</span><span class="bad">${job.failCount}</span><span class="skp">${job.skipCount}</span>
             </div>
             <div class="preview-box" style="margin-top:12px">
               <div class="muted">${fmtDate(job.createdAt)} • ${job.total} alıcı</div>
               <div class="msg">${esc(job.payload?.text || job.payload?.fileName || job.payload?.caption || '')}</div>
             </div>
-            ${list(failed, '❌ Xəta olanlar')}
-            ${list(sent, '✅ Göndərilənlər')}
-            ${list(skipped, '⏭ Atlanılanlar')}
+            ${list(failed, 'Xəta olanlar')}
+            ${list(sent, 'Göndərilənlər')}
+            ${list(skipped, 'Atlanılanlar')}
             <div class="row">
-              ${job.failCount > 0 && job.state === 'completed' ? `<button class="btn" data-action="job-retry" data-id="${job.id}">🔁 Uğursuzları təkrar</button>` : ''}
+              ${job.failCount > 0 && job.state === 'completed' ? `<button class="btn" data-action="job-retry" data-id="${job.id}">${ICONS.retry} Uğursuzları təkrar</button>` : ''}
               <button class="btn btn-ghost" data-action="close-modal">Bağla</button>
             </div>
           </div>
@@ -950,6 +1001,12 @@
     /* ── global events ── */
     bind() {
       document.addEventListener('click', async (e) => {
+        const a = e.target.closest('a[href]');
+        if (a && !a.closest('[data-action]') && a.target !== '_blank' && !a.hasAttribute('download') && !a.hasAttribute('data-href')) {
+          const href = a.getAttribute('href');
+          const internal = href && (href === '/' || Object.values(this.ROUTE_PATHS).includes(href));
+          if (internal) { e.preventDefault(); this.navigateTo(href); return; }
+        }
         const backdrop = e.target.closest('.modal-back');
         if (backdrop && !e.target.closest('.modal')) {
           this.closeModal();
@@ -1005,7 +1062,7 @@
       const chip = $('#file-chip');
       const f = this.state.send.file;
       if (!chip) return;
-      chip.innerHTML = f ? `<div class="file-chip">📎 <b>${esc(f.name)}</b> <span class="muted">(${(f.size / 1024).toFixed(0)} KB)</span> <button class="btn btn-ghost btn-sm" data-action="file-clear" style="margin-left:auto">✕</button></div>` : '';
+      chip.innerHTML = f ? `<div class="file-chip">${ICONS.paperclip} <b>${esc(f.name)}</b> <span class="muted">(${(f.size / 1024).toFixed(0)} KB)</span> <button class="btn btn-ghost btn-sm" data-action="file-clear" style="margin-left:auto">${ICONS.x}</button></div>` : '';
       $('#f-caption').classList.toggle('hidden', !f);
       if (f) {
         const mt = f.type || '';
@@ -1022,8 +1079,8 @@
 
     async handleAction(action, el) {
       switch (action) {
-        case 'nav': this.state.route = el.dataset.nav; location.hash = '#/' + el.dataset.nav; break;
-        case 'goto': location.hash = el.dataset.href; break;
+        case 'nav': this.navigateTo(this.pathFor(el.dataset.nav)); break;
+        case 'goto': this.navigateTo(el.dataset.href); break;
         case 'logout':
           try { await this.api('/auth/logout', { method: 'POST' }); } catch {}
           this.state.authed = false;
@@ -1035,6 +1092,8 @@
           this.state.theme = this.state.theme === 'dark' ? 'light' : 'dark';
           document.documentElement.setAttribute('data-theme', this.state.theme);
           localStorage.setItem('wpm_theme', this.state.theme);
+          const tb = $('.topbar .icon-btn[data-action="theme"]');
+          if (tb) tb.innerHTML = this.state.theme === 'dark' ? ICONS.sun : ICONS.moon;
           break;
         case 'conn-tab': this.state.connect.tab = el.dataset.tab; this.renderConnect(); break;
         case 'wa-qr':
@@ -1059,7 +1118,15 @@
         }
         case 'copy-pair': {
           const code = this.state.connect.pair;
-          if (code) { try { await navigator.clipboard.writeText(code); this.toast('Kod kopyalandı', 'ok'); } catch {} }
+          const btn = el.dataset.action === 'copy-pair' ? el : null;
+          if (code) {
+            try { await navigator.clipboard.writeText(code); } catch {}
+            this.toast('Kod kopyalandı', 'ok');
+            if (btn) {
+              btn.classList.add('is-success');
+              setTimeout(() => btn.classList.remove('is-success'), 1600);
+            }
+          }
           break;
         }
         case 'wa-disconnect':
@@ -1090,7 +1157,7 @@
           break;
         case 'send-contact':
           this.state.send = { ...this.state.send, step: 1, mode: 'contacts', contactIds: [Number(el.dataset.id)] };
-          location.hash = '#/send';
+          this.navigateTo('/send');
           break;
         case 'contacts-search':
           this.state.contacts.q = $('#contact-q')?.value || '';
@@ -1161,12 +1228,15 @@
     async handleForm(kind, form) {
       if (kind === 'login') {
         const data = Object.fromEntries(new FormData(form));
-        const res = await this.api('/auth/login', { method: 'POST', body: JSON.stringify({ password: data.password }) });
-        this.state.authed = true;
-        this.state.user = { username: res.username || 'admin' };
-        this.connectRealtime();
-        location.hash = '#/dashboard';
-        this.router();
+        const btn = form.querySelector('button[type="submit"]');
+        setLoading(btn, true);
+        try {
+          const res = await this.api('/auth/login', { method: 'POST', body: JSON.stringify({ password: data.password }) });
+          this.state.authed = true;
+          this.state.user = { username: res.username || 'admin' };
+          this.connectRealtime();
+          this.navigateTo(this.pathFor(this.state.route || 'dashboard'));
+        } catch (e) { setLoading(btn, false); throw e; }
         return;
       }
       if (kind === 'contact-save') {

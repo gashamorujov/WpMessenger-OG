@@ -53,7 +53,8 @@ router.get('/status', requireWorkerAuth, (req, res) => {
 router.post('/connect', requireWorkerAuth, async (req, res) => {
   const { phone, method } = req.body || {};
   const isQr = method === 'qr';
-  if (isQr && !phone) {
+  // QR linking has no phone number — the web app sends the fixed session key 'main'.
+  if (isQr && (!phone || String(phone).trim() === 'main')) {
     const result = await wa.connectWithPhone('main', 'qr');
     if (!result.ok && result.error) return clientError(res, result.error, 400);
     return ok(res, { phone: 'main', sessionKey: 'main' });

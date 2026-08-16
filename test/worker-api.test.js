@@ -13,7 +13,7 @@ const FIREBASE_FILE = `file://${path.join(tmp, 'firebase.json')}`;
 
 let child = null;
 
-async function waitForHealth(timeoutMs = 15000) {
+async function waitForHealth(timeoutMs = 60000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {

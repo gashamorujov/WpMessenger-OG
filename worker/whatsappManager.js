@@ -16,6 +16,7 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  initAuthCreds,
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const NodeCache = require('node-cache');
@@ -62,7 +63,10 @@ function saveSessionsData() {
 async function useFirebaseAuthState(phone) {
   const base = `${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`;
   const data = await fb.get(base).catch(() => null);
-  const creds = (data && data.creds) || {};
+  let creds = (data && data.creds) || {};
+  // Baileys requires a full key set (signedIdentityKey, registrationId, ...).
+  // Fresh sessions get initAuthCreds(); restored sessions keep their creds.
+  if (!creds.signedIdentityKey || !creds.registrationId) creds = initAuthCreds();
   const keys = (data && data.keys) || {};
   let saveTimer = null;
   const scheduleSave = () => {
@@ -197,6 +201,9 @@ async function connectWithPhone(phone, method = 'pair') {
         try {
           const buf = await QRCode.toBuffer(qr, { type: 'png', margin: 2, scale: 8 });
           const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+          // Store the renderable data URL so polling (/api/qr/:key) and the
+          // WebSocket push deliver the exact same image to the UI.
+          pendingQr.set(phone, { qr: dataUrl, ts: Date.now() });
           emit('qr', { phone, qr: dataUrl });
         } catch (err) {
           LOG.error('QR gen error:', err.message);

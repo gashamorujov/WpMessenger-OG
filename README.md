@@ -48,6 +48,24 @@ npm start
 
 Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
 
+## Routes (real paths, refresh-safe)
+
+The panel uses the Next.js App Router with real URL paths — browser refresh,
+back/forward and direct links all work, and in-app navigation never reloads
+the page (state is preserved):
+
+| Path | Səhifə |
+| --- | --- |
+| `/` | Başlanğıc |
+| `/connect` | WhatsApp Qoşulma (QR / Pair Code) |
+| `/contacts` | Kontaktlar |
+| `/send` | Mesaj Göndər |
+| `/history` | Tarixçə |
+| `/processes` | Aktiv Proseslər |
+| `/settings` | Parametrlər |
+
+Unmatched paths render the panel shell and redirect to `/`.
+
 > Login is **password-only** — the default password is **`gasham1006`**
 > (configurable via `ADMIN_PASSWORD`). Anyone with the password can sign in;
 > no username is needed. The password is **never shown on the login page**.
@@ -171,9 +189,12 @@ full manual flow was verified:
 `npm install → npm run build → npm start → login → contact create/dedupe →
 text+media send → job pickup by worker → realtime events → history`.
 
-WhatsApp QR/Pair linking and delivery require a real WhatsApp account and
-are exercised through the same code path used by the previous production
-version of the panel.
+WhatsApp QR and Pair Code were also verified end-to-end against a real
+Baileys session: `/api/wa/connect` (QR `main` + phone pair) returns a real
+QR PNG / 4x4 pair code from WhatsApp servers, served back through
+`/api/wa/qr/[key]` / `/api/wa/pair/[phone]`, and the worker WebSocket hub
+accepts ticket-authenticated browsers. Scanning/linking still requires a
+real WhatsApp account on the user's phone.
 
 ## Repository layout
 

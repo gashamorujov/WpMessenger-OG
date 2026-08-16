@@ -1,4 +1,5 @@
 import './globals.css';
+import Script from 'next/script';
 import config from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export default function RootLayout({ children }) {
         <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js" defer />
         <script dangerouslySetInnerHTML={{ __html: `window.__WPM_CONFIG__ = ${JSON.stringify(clientConfig())};` }} />
       </head>
-      <body>{children}</body>
+      <body>{children}<Script src="/spa.js" strategy="afterInteractive" /></body>
     </html>
   );
 }
