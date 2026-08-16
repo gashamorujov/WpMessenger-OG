@@ -1,9 +1,11 @@
-# Render Blueprint — https://render.com/docs/blueprint-spec
-# Docker əsaslı persistent backend. Panel: <service>.onrender.com
+# ─── Render Blueprint — web + worker ───
+# https://render.com/docs/blueprint-spec
+# İki ayrı service: web (Next.js) + worker (persistent WhatsApp backend).
 services:
   - type: web
-    name: wp-messenger-og
+    name: wp-messenger-og-web
     runtime: docker
+    dockerfilePath: ./Dockerfile
     plan: starter
     autoDeploy: true
     healthCheckPath: /api/health
@@ -14,13 +16,41 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         sync: false
+      - key: DATABASE_URL
+        value: /data/app.db
+      - key: DATA_DIR
+        value: /data
+      # Worker-in public URL-i: web paneldən /api/health-a baxıb worker ünvanını yazın
+      - key: WORKER_API_URL
+        value: https://wp-messenger-og-worker.onrender.com
+      - key: WORKER_WS_URL
+        value: wss://wp-messenger-og-worker.onrender.com
+      - key: WORKER_API_TOKEN
+        sync: false
+    disk:
+      name: wp-web-data
+      mountPath: /data
+      sizeGB: 1
+
+  - type: web
+    name: wp-messenger-og-worker
+    runtime: docker
+    dockerfilePath: ./worker/Dockerfile
+    plan: starter
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 3100
+      - key: DATABASE_URL
+        value: /data/app.db
       - key: DATA_DIR
         value: /data
       - key: SESSION_PATH
         value: /data/sessions
-      - key: DATABASE_URL
-        value: /data/app.db
+      - key: WORKER_API_TOKEN
+        sync: false
     disk:
-      name: wp-messenger-data
+      name: wp-worker-data
       mountPath: /data
       sizeGB: 1

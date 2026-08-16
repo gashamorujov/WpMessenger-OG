@@ -1,239 +1,151 @@
 # WpMessenger OG — WhatsApp Web Management Panel
 
-Telegram bot deyil — **tam web tətbiq**. Sayta daxil ol → WhatsApp hesabını QR və ya Pair Code ilə qoş → kontaktları saxla → istənilən nömrəyə mesaj/media göndər → real-time progressi izlə → tarixçəyə bax.
-
-Bu layihə `WpFastMesenger-v6` (Telegram-ilə-idarə olunan WhatsApp botu) əsasında tam yenidən qurulub: Telegram idarəetməsi web panelə köçürülüb, bütün əsas funksiyalar qorunub və professional REST API + WebSocket arxitekturasına keçirilib.
-
----
-
-## ✨ Xüsusiyyətlər
-
-- 🔐 **Auth** — scrypt parol hash, persistent token session, rate limiting, input validation
-- 📱 **WhatsApp qoşulma** — QR Code və ya Pair Code; session persistence (server restartda yenidən qoşulma tələb olunmur)
-- 👥 **Kontakt sistemi** — SQLite (persistent), Azərbaycan nömrə normalizasiyası, duplicate qorunması
-  - `0503482680`, `9940503482680`, `+994503482680` → eyni kontakt
-  - Kontakt yaradılanda WhatsApp kontaktlarına avtomatik əlavə olunur (Linked Devices contactAction)
-  - WhatsApp qeydiyyat statusu (USync `onWhatsApp`) avtomatik yoxlanılır
-- ✉️ **Mesaj göndərmə** — mətn, şəkil, video, audio, səs, sənəd, PDF, fayl
-  - Alıcı seçimi: bir nömrə / siyahı / kontaktlardan / bütün kontaktlar
-  - Göndərmədən əvvəl **Preview** mərhələsi
-  - Canlı **progress** (WebSocket): done/total, uğurlu/xəta/atlanan, faiz barı
-  - 🛑 Dayandır düyməsi — queue düzgün bağlanır, bərpa olunmur
-  - Bir nömrədə xəta bütün göndərişi dayandırmır
-- 📦 **Job sistemi** — persistent jobs (SQLite), crash-recovery (interrupted → avtomatik resume), failed retry, ACK tracking, duplicate-send guard
-- 🕘 **Tarixçə** — hər göndəriş üçün tarix, alıcı sayı, mesaj, uğur/xəta, ətraflı baxış + uğursuzları təkrar göndər
-- ⚡ **Real-time** — WebSocket (`/ws`) ilə WhatsApp status, QR, Pair Code, göndərmə progressi, aktiv job statusu səhifəni refresh etmədən yenilənir
-- 🎨 **Modern UI/UX** — tam responsive; desktop sidebar, mobil bottom navigation, dark/light mode
-- 🚀 **Deploy** — VPS / Railway / Render / Fly.io / Docker; frontend Vercel / Netlify / Cloudflare Pages
-
----
-
-## 🏗 Arxitektura
+Deploy-first, production-ready WhatsApp Web Management Panel built with
+**Next.js App Router** (Vercel/Netlify-friendly) + a **persistent WhatsApp
+worker** that runs on Railway/VPS/Docker.
 
 ```
-frontend/            statik SPA (vanilla JS — build tələb olunmur)
-  index.html
-  css/styles.css
-  js/app.js
-  vercel.json / netlify.toml
-
-index.js             server bootstrap (Express + WebSocket + static)
-server/
-  whatsappManager.js Baileys socket lifecycle (QR/Pair, reconnect, watchdog)
-  broadcastService.js global serialized queue, progress, resume, cancel
-  webSocketHub.js    realtime push (ws)
-  auth.js            login, scrypt, sessions
-  routes.js          REST API
-db/
-  index.js           SQLite + migration sistemi (PRAGMA user_version)
-  contacts.js        kontaktlar
-  jobs.js            göndəriş işləri / tarixçə
-  sessions.js        auth tokenlər
-  appSettings.js     panel settings
-lib/
-  phone.js / azPhone.js  nömrə normalizasiyası (Azərbaycan)
-  broadcast.js       real WhatsApp göndərmə mühərriki
-  queue.js           FIFO worker (rate-limit)
-  waPresence.js      onWhatsApp yoxlaması + kontakt əlavə etmə
-  recentSends.js     duplicate guard
-  rateLimit.js       rate limiting
+İstifadəçi → Login → WhatsApp qoşul (QR / Pair Code) → Kontakt əlavə et →
+Mesaj/Media göndər → Real-time progress → Tarixçə
 ```
 
-Frontend heç vaxt WhatsApp socket-ə birbaşa qoşulmur — bütün WhatsApp əməliyyatları backend tərəfindən idarə olunur.
+## Architecture
 
----
+- **Web (Next.js)** — App Router UI + Route Handlers API. Runs on Vercel,
+  Netlify, Railway, Render, Fly.io, Docker or any Node host.
+  - Auth (cookie sessions), contacts, jobs, settings, history — all in the database.
+  - WhatsApp commands are **proxied** to the worker over HTTPS with a shared
+    bearer token. The web app NEVER opens a WhatsApp/WebSocket connection.
+- **Worker (persistent)** — `worker/` Express + Baileys process. Runs on
+  Railway/VPS/Docker. Owns the long-lived WhatsApp sessions, executes send
+  jobs and pushes realtime events (`wss://…/ws?ticket=…`) to the browser.
+- **Database** — shared between web and worker:
+  - Local dev: SQLite (`DATABASE_URL=./data/app.db`)
+  - Production: PostgreSQL (Neon/Supabase/Railway) — `DATABASE_URL=postgresql://…`
+  - Jobs are created by the web app and executed by the worker against the
+    same DB; progress is written back so the UI always reflects reality.
 
-## 🚀 Quickstart (lokal)
+```
+Browser ── HTTPS /api/* ──► Next.js (Vercel/Netlify) ── bearer token ──► Worker API ──► WhatsApp
+Browser ── wss://…/ws?ticket=… ──► Worker WebSocket (realtime events)
+```
+
+## Quick start (local)
 
 ```bash
-cp .env.example .env      # ADMIN_PASSWORD dəyişdirin
-npm install
+cp .env.example .env     # set ADMIN_USERNAME, ADMIN_PASSWORD, WORKER_API_TOKEN
+npm install              # web app deps
+npm --prefix worker install
+npm run build
+# terminal 1 — worker
+WORKER_API_TOKEN=... DATABASE_URL=./data/app.db node worker/server.js
+# terminal 2 — web
 npm start
 ```
 
-İlk işə salmada DB avtomatik yaradılır və migration işləyir. `ADMIN_PASSWORD` boşdursa təsadüfi şifrə yaradılır və **loqlarda çap olunur**.
+Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
 
-Açın: http://localhost:3000 → login → **WhatsApp-a qoşul** (QR / Pair Code).
+> `ADMIN_PASSWORD` is required on first login. Missing env vars never crash
+> the app — they produce clear, managed error messages.
 
----
+## Deploy matrix
 
-## ☁️ Deploy
+| Platform | Web (Next.js) | Worker (persistent) | Notes |
+| --- | --- | --- | --- |
+| **Vercel** | repo root | Railway/VPS | No config file needed. Set env vars below. Use PostgreSQL. |
+| **Netlify** | repo root (`netlify.toml`) | Railway/VPS | `@netlify/plugin-nextjs` auto-installed. |
+| **Railway** | repo root (`railway.toml`) | 2nd service, root dir `worker` | `worker/railway.toml` included. |
+| **Render** | `render.yaml` (web service) | `render.yaml` (worker service) | Persistent disks mounted at `/data`. |
+| **VPS / Docker** | `docker-compose.yml` | same compose file | Shared `wpm-data` volume (SQLite + sessions). |
+| **Fly.io** | `fly.toml` | `cd worker && fly launch` | Persistent volume for `/data`. |
 
-> **Avtomatik konfiqurasiya:** `PORT`, `API_URL`, `WS_URL`, `FRONTEND_URL` və CORS
-> platforma environment variable-larından (`RAILWAY_PUBLIC_DOMAIN`,
-> `RENDER_EXTERNAL_URL`, `VERCEL_URL`, `FLY_APP_NAME` və s.) **avtomatik təyin
-> olunur** — heç bir hard-code edilmiş URL yoxdur. Yalnız `ADMIN_PASSWORD`
-> təyin etmək vacibdir (boşdursa random yaradılır və loqa yazılır).
+### Vercel / Netlify
 
-### Arxitektura: iki variant
-
-**A) Tək deploy (tövsiyə olunur)** — backend paneli də servis edir:
-Railway / Render / Fly.io / VPS / Docker. Əlavə konfiqurasiya yoxdur.
-
-**B) Ayrı frontend + backend** — statik frontend Vercel / Netlify /
-Cloudflare Pages-də, persistent WhatsApp backend Railway / VPS / Docker-də.
-
-```
-┌──────────────┐   HTTPS (CORS)   ┌─────────────────────────┐
-│ Vercel/Netlify│ ───────────────▶ │ Railway/VPS (backend)    │
-│  frontend/    │  REST + WebSocket│  WhatsApp sessions + DB  │
-└──────────────┘                  └─────────────────────────┘
-```
-
-### Railway (tək deploy)
-1. Reponu Railway-ə qoşun — `Dockerfile` avtomatik istifadə olunur.
-2. Env: `ADMIN_USERNAME`, `ADMIN_PASSWORD` (məcburi); `PORT` Railway təyin edir.
-3. Persistent volume əlavə edin və `/data`-ya mount edin (DB + sessionlar).
-   Railway → Deployments → Volume → `data` → mount path `/data`.
-4. Public domain avtomatik olaraq `API_URL`/`WS_URL` kimi istifadə olunur.
-
-### Render
-Repo kökündəki `render.yaml` blueprint hazırdır: "New → Blueprint" seçin.
-Disk (`/data`) və `ADMIN_PASSWORD` (sync: false) avtomatik yaradılır.
-
-### Fly.io
-```bash
-fly launch --no-deploy
-fly volumes create wpm_data --size 1
-fly deploy
-```
-`fly.toml` artıq konfiqurasiya olunub (volume mount `/data`, health check).
-
-### VPS (Docker)
-```bash
-REPO_URL=https://github.com/gashamorujov/WpMessenger-OG.git bash scripts/deploy-vps.sh
-```
-Data `./data` volume-da persistent saxlanılır; panel `http://<server-ip>:3000`.
-
-### Vercel / Netlify — yalnız frontend (B variantı)
-Backend ilk olaraq Railway/Render/VPS-də deploy edin, sonra:
-
-1. Vercel-də repo → root directory: `frontend`.
-2. Env vars: `API_URL=https://wpm.up.railway.app` (və istəsəniz `WS_URL`).
-   `npm run build` `frontend/js/config.generated.js`-i yaradır; frontend
-   `API_URL`-ə və törədilmiş `WS_URL`-ə (wss://) qoşulur.
-3. Netlify üçün eyni: build `npm run build`, publish `.`, env `API_URL`.
-
-> Vercel/Netlify **serverless məhdudiyyəti** var: WhatsApp WebSocket/session
-> daimi işləyən proses tələb edir. Bu platformalarda backend deploy etməyə
-> çalışmayın — backend üçün Railway/VPS/Render/Docker istifadə edin.
-
-### Docker (lokal / istənilən server)
-```bash
-docker build -t wp-messenger-og .
-docker run -p 3000:3000 -e ADMIN_PASSWORD=changeme -v $(pwd)/data:/data wp-messenger-og
-```
-`docker-compose.yml` hazırdır: `docker compose up -d --build`.
-
----
-
-## 🔐 Təhlükəsizlik
-
-- Login + token session (httpOnly cookie + Authorization header)
-- Parollar scrypt ilə hashlənir (heç vaxt düz mətndə saxlanılmır)
-- Rate limiting (login: 10/dəq/IP; API: 240/dəq/IP)
-- Input validation (nömrə formatı, ad uzunluğu, mesaj uzunluğu, max alıcı)
-- Nömrə məlumatları və session məlumatları yalnız autentifikasiya olunmuş istifadəçiyə verilir
-- Heç bir secret repo-da saxlanılmır — yalnız environment variables
-
----
-
-## 📡 API Endpoints
-
-| Metod | Endpoint | İzah |
-|---|---|---|
-| POST | `/api/auth/login` | Login → token |
-| POST | `/api/auth/logout` | Çıxış |
-| GET | `/api/auth/me` | Sessiya yoxlaması |
-| GET | `/api/overview` | Dashboard statistikası |
-| GET/POST | `/api/contacts` | Kontakt siyahısı / əlavə et |
-| POST | `/api/contacts/import` | Toplu import |
-| GET/PUT/DELETE | `/api/contacts/:id` | Kontakt əməliyyatları |
-| GET | `/api/contacts/all` | Bütün kontaktlar (minimal) |
-| POST | `/api/wa/connect` | QR/Pair qoşulma |
-| GET | `/api/wa/status` | Sessiya statusları |
-| GET | `/api/wa/qr/:key`, `/api/wa/pair/:phone` | Polling fallback |
-| POST | `/api/wa/disconnect` | Çıxış |
-| POST | `/api/messages/send` | Mesaj/media göndər (multipart) |
-| GET | `/api/jobs` | Job siyahısı (`?state=active`) |
-| GET | `/api/jobs/:id` | Job detalı |
-| POST | `/api/jobs/:id/cancel` | Dayandır |
-| POST | `/api/jobs/:id/retry-failed` | Uğursuzları təkrar |
-| POST | `/api/jobs/cancel-all` | Hamısını dayandır |
-| GET | `/api/history` | Tarixçə |
-| GET/PUT | `/api/settings` | Panel parametrləri |
-| GET | `/api/health` | Health check |
-
----
-
-## 🗄 Database & Deploy
-
-- **Lokal/sadə deploy**: SQLite (`DATABASE_URL=./data/app.db`) — heç nə konfiqurasiya tələb etmir.
-- **Production**: persistent storage vacibdir (kontaktlar, işlər, sessionlar itməməlidir):
-  - Railway/Render/Fly: persistent volume `/data` üzərində
-    (`DATA_DIR=/data`, `SESSION_PATH=/data/sessions`, `DATABASE_URL=/data/app.db`
-    — `render.yaml`, `fly.toml` və `docker-compose.yml` bunu artıq edir).
-  - Migration sistemi var: `npm run migrate` və ya avtomatik (startda).
-
----
-
-## 📦 Environment Variables
-
-| Dəyişən | Məcburi | Default | İzah |
-|---|---|---|---|
-| `PORT` | ❌ | 3000 | HTTP port |
-| `ADMIN_USERNAME` | ❌ | admin | Panel login |
-| `ADMIN_PASSWORD` | ❌ | (random) | Panel şifrəsi — boşdursa random yaradılır |
-| `DATABASE_URL` | ❌ | ./data/app.db | SQLite faylı |
-| `DATA_DIR` | ❌ | ./data | Persistent data |
-| `SESSION_PATH` | ❌ | ./sessions | WhatsApp sessionlar |
-| `FRONTEND_URL` | ❌ | auto | Panelin public URL-i (platformadan törəyir) |
-| `API_URL` / `BACKEND_URL` | ❌ | auto | Backend origin (Railway/Render/...) |
-| `WS_URL` | ❌ | auto | WebSocket base (API_URL-dən törəyir, wss://) |
-| `CORS_ORIGIN` | ❌ | * (hamısı) | Vergüllə ayrılmış icazəli origin-lər |
-| `TRUST_PROXY` | ❌ | true | Proxy arxasında düzgün IP |
-| `RAILWAY_PUBLIC_DOMAIN` | ❌ | — | Railway avtomatik verir |
-| `RENDER_EXTERNAL_URL` | ❌ | — | Render avtomatik verir |
-| `VERCEL_URL` | ❌ | — | Vercel avtomatik verir |
-| `BROADCAST_DELAY_MIN_MS` | ❌ | 3000 | Göndərmələr arası min gecikmə |
-| `BROADCAST_DELAY_MAX_MS` | ❌ | 7000 | Göndərmələr arası max gecikmə |
-| `BROADCAST_MAX_RETRIES` | ❌ | 2 | Retry sayı |
-| `DUPLICATE_SEND_TTL_MIN` | ❌ | 10 | Duplicate qoruyucu |
-| `WA_PRESENCE_CHECK` | ❌ | true | WhatsApp qeydiyyat yoxlaması |
-| `WA_SKIP_UNREGISTERED` | ❌ | true | Qeydiyyatsızları atla |
-| `MAX_RECIPIENTS` | ❌ | 10000 | Max alıcı |
-| `FRONTEND_URL` / `API_URL` / `WS_URL` | ❌ | — | Ayrı frontend deploy üçün |
-
----
-
-## 🧪 Test
+1. Import the repo. No build config needed (Next auto-detected).
+2. Add a PostgreSQL database (Neon/Supabase/Railway) and deploy the worker
+   on Railway/VPS (see below).
+3. Set env vars:
 
 ```bash
-npm test
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=<strong-password>
+DATABASE_URL=postgresql://user:pass@host:5432/wpm   # production DB
+WORKER_API_URL=https://your-worker.up.railway.app    # worker public URL
+WORKER_API_TOKEN=<long-random-secret>                # SAME on web + worker
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app      # optional
 ```
 
----
+4. Deploy → open the site → login → connect WhatsApp.
 
-## ℹ️ Qeyd
+### Railway / VPS worker
 
-Bu layihə WhatsApp-ın rəsmi **Linked Devices / WhatsApp Web** protokolundan (Baileys) istifadə edir. Hesabın ban riskini azaltmaq üçün göndərmə limitləri (gecikmələr, max alıcı) konfiqurasiya oluna bilər. Böyük həcmli göndərişlərdən əvvəl limitləri aşağı salın.
+```bash
+# Railway: New → Empty Service → Root Directory: worker
+# env: WORKER_API_TOKEN, DATABASE_URL (same DB), PORT auto
+# VPS (Docker):
+docker compose up -d --build
+```
+
+## Environment variables
+
+All configuration is env-driven — no hardcoded hosts, ports or URLs.
+URLs are auto-derived from platform env vars (`RAILWAY_PUBLIC_DOMAIN`,
+`RENDER_EXTERNAL_URL`, `VERCEL_URL`, `FLY_APP_NAME`) when not set.
+
+| Variable | Where | Description |
+| --- | --- | --- |
+| `PORT` | web | HTTP port (default 3000; platform `PORT` used automatically) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (required) |
+| `WORKER_API_URL` | web | Worker public API URL (`https://worker.up.railway.app`) |
+| `WORKER_API_TOKEN` | web + worker | Shared secret — **must match** |
+| `WORKER_WS_URL` | web | Realtime WS URL (auto-derived `wss://` from API URL) |
+| `DATABASE_URL` | web + worker | SQLite file or PostgreSQL URL — **same value on both** |
+| `DATA_DIR` / `SESSION_PATH` | worker | Runtime data + Baileys sessions |
+| `BROADCAST_DELAY_MIN_MS` / `BROADCAST_DELAY_MAX_MS` | both | Random delay between sends |
+| `BROADCAST_MAX_RETRIES` | both | Per-recipient retry count |
+| `DUPLICATE_SEND_TTL_MIN` | both | Cross-job duplicate guard TTL (0 disables) |
+| `WA_PRESENCE_CHECK` / `WA_SKIP_UNREGISTERED` | both | Registration pre-check |
+| `MAX_RECIPIENTS` / `MAX_MESSAGE_LENGTH` / `MAX_UPLOAD_BYTES` | both | Safety limits |
+| `RATE_LIMIT_*` / `LOGIN_RATE_LIMIT_MAX` | web | Login/API rate limiting |
+
+Settings page overrides (delay, retries, limits) are stored in the shared
+database and honoured by the worker.
+
+## Scripts
+
+```bash
+npm run dev        # next dev
+npm run build      # next build (standalone output)
+npm start          # production start (standalone-aware)
+npm test           # node --test (unit + worker integration)
+npm run migrate    # apply DB migrations
+npm run check      # config/syntax check
+npm --prefix worker install   # install worker deps
+```
+
+## Testing
+
+`npm test` covers phone normalization, the send queue, the shared storage
+layer (SQLite), and a real worker boot (health, bearer auth, uploads,
+job execution against the shared DB). A full manual flow was verified:
+
+`npm install → npm run build → npm start → login → contact create/dedupe →
+text+media send → job pickup by worker → realtime ticket → history`.
+
+WhatsApp QR/Pair linking and delivery require a real WhatsApp account and
+are exercised through the same code path used by the previous production
+version of the panel.
+
+## Repository layout
+
+```
+app/            Next.js App Router pages + Route Handler API
+lib/            Web config, storage (SQLite/PostgreSQL), repositories, auth, worker client
+public/         SPA (spa.js/spa.css) + static assets
+worker/         Persistent WhatsApp backend (Express + Baileys), own package
+scripts/        migrate + standalone-aware start
+test/           node:test suite
+Dockerfile      Web image (Next standalone)
+docker-compose.yml   Web + worker on one VPS
+render.yaml / railway.toml / fly.toml / Procfile / netlify.toml
+```

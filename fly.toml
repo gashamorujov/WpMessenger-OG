@@ -1,5 +1,6 @@
-# Fly.io — https://fly.io/docs/reference/configuration/
-# `fly launch` → `fly deploy` (persistent volume: fly volumes create wpm_data --size 1)
+# ─── Fly.io — Web app ───
+# Worker üçün ayrıca app yaradın: cd worker && fly launch
+# Persistent volume: fly volumes create wpm_data --size 1
 app = "wp-messenger-og"
 
 [build]
@@ -9,8 +10,9 @@ app = "wp-messenger-og"
   PORT = "3000"
   ADMIN_USERNAME = "admin"
   DATA_DIR = "/data"
-  SESSION_PATH = "/data/sessions"
   DATABASE_URL = "/data/app.db"
+  WORKER_API_URL = "https://wp-messenger-og-worker.fly.dev"
+  WORKER_WS_URL = "wss://wp-messenger-og-worker.fly.dev"
 
 [[mounts]]
   source = "wpm_data"

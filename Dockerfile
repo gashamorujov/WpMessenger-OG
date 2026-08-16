@@ -1,27 +1,29 @@
-FROM node:20-slim
-
-# better-sqlite3 native build tools
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ git ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
+# ─── WpMessenger OG — Web (Next.js standalone) ───
+# The persistent WhatsApp worker ships separately (worker/Dockerfile).
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
-
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --no-audit --no-fund
 
+FROM node:20-bookworm-slim AS build
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npm run build && npm prune --omit=dev
 
-# Statik frontend konfiqurasiyasını da yaradır (backend həm də dinamik verir)
-RUN npm run build
-
-RUN mkdir -p data sessions data/temp
-
+FROM node:20-bookworm-slim AS run
+WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=3000
-
+RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nodejs nextjs
+COPY --from=build /app/public ./public
+COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
+RUN mkdir -p /data && chown nextjs:nodejs /data
+USER nextjs
 EXPOSE 3000
-
-VOLUME ["/data", "/app/sessions"]
-
-# Railway/Render/Fly volume-ları ilə /data mount edin (DB + sessionlar üçün)
-CMD ["node", "index.js"]
+ENV PORT=3000 HOSTNAME=0.0.0.0
+CMD ["node", "server.js"]

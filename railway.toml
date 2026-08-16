@@ -1,6 +1,7 @@
+# Railway — web service (root directory). Worker üçün ayrıca service əlavə edin:
+#   New → Empty Service → Root Directory: worker
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
 
 [deploy]
 healthcheckPath = "/api/health"

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { Queue } = require('../lib/queue');
-const { sleep } = require('../lib/myfunc');
+const { Queue } = require('../worker/lib/queue');
+const { sleep } = require('../worker/lib/myfunc');
 
 test('queue processes items sequentially and reports success/failure', async () => {
   const order = [];
@@ -17,7 +17,6 @@ test('queue processes items sequentially and reports success/failure', async () 
   q.push('bad');
   q.push('b');
   await q.run();
-
   assert.deepEqual(order, ['a', 'bad', 'b']);
   assert.equal(q.success, 2);
   assert.equal(q.failed, 1);
@@ -47,11 +46,15 @@ test('removeWhere drops matching queued items only', async () => {
     delayMin: 2,
     delayMax: 2,
   });
-  q.push('keep:1');
-  q.push('drop:1');
-  q.push('keep:2');
-  const removed = q.removeWhere((item) => item.startsWith('drop:'));
+  q.push('job-1');
+  q.push('job-2');
+  q.push('job-3');
+  const drain = q.run();
+  await sleep(5);
+  const removed = q.removeWhere((id) => id === 'job-2');
   assert.equal(removed, 1);
-  await q.run();
-  assert.deepEqual(seen, ['keep:1', 'keep:2']);
+  await drain;
+  assert.ok(seen.includes('job-1'));
+  assert.ok(seen.includes('job-3'));
+  assert.ok(!seen.includes('job-2'));
 });

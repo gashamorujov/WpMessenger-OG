@@ -1,0 +1,9 @@
+# ─── Netlify — Next.js ───
+# Netlify UI-da env dəyişənlərini təyin edin (WORKER_API_URL, WORKER_API_TOKEN,
+# ADMIN_USERNAME, ADMIN_PASSWORD, DATABASE_URL).
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

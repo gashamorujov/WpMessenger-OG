@@ -1,23 +1,44 @@
-version: '3.8'
-
+# ─── WpMessenger OG — Local / VPS deploy (web + worker) ───
+#   cp .env.example .env   →   doldurun (ADMIN_PASSWORD, WORKER_API_TOKEN)
+#   docker compose up -d --build
+# Panel: http://localhost:3000
+#
+# Production üçün WORKER_API_URL/WORKER_WS_URL worker-in public ünvanı olmalıdır
+# (məs. https://worker.example.com), yoxsa brauzer WS-ə qoşula bilməz.
 services:
-  wp-messenger-og:
+  web:
     build: .
-    container_name: wp-messenger-og
+    container_name: wp-web
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     environment:
       - PORT=3000
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
-      - FRONTEND_URL=${FRONTEND_URL:-}
-      - API_URL=${API_URL:-}
-      - WS_URL=${WS_URL:-}
-      - CORS_ORIGIN=${CORS_ORIGIN:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD required}
+      - DATABASE_URL=/data/app.db
+      - DATA_DIR=/data
+      - WORKER_API_URL=${WORKER_API_URL:-http://worker:3100}
+      - WORKER_API_TOKEN=${WORKER_API_TOKEN:?WORKER_API_TOKEN required}
+      - WORKER_WS_URL=${WORKER_WS_URL:-ws://worker:3100}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+    volumes:
+      - wpm-data:/data
+    depends_on:
+      - worker
+
+  worker:
+    build: ./worker
+    container_name: wp-worker
+    restart: unless-stopped
+    environment:
+      - PORT=3100
+      - DATABASE_URL=/data/app.db
       - DATA_DIR=/data
       - SESSION_PATH=/data/sessions
-      - DATABASE_URL=/data/app.db
-      - TRUST_PROXY=${TRUST_PROXY:-true}
+      - WORKER_API_TOKEN=${WORKER_API_TOKEN:?WORKER_API_TOKEN required}
     volumes:
-      - ./data:/data
+      - wpm-data:/data
+
+volumes:
+  wpm-data:

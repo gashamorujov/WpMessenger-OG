@@ -1,0 +1,26 @@
+{
+  "name": "wp-messenger-og-worker",
+  "version": "8.0.0",
+  "private": true,
+  "description": "WpMessenger OG — persistent WhatsApp worker (Baileys). Runs on Railway/VPS/Docker; the Next.js web app talks to it over HTTPS with a bearer token.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "migrate": "node scripts/migrate.js"
+  },
+  "engines": {
+    "node": ">=20 <23"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.20",
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2",
+    "fs-extra": "^11.3.2",
+    "node-cache": "^5.1.2",
+    "pg": "^8.14.1",
+    "pino": "^9.7.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.2"
+  }
+}

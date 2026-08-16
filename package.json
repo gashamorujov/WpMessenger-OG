@@ -1,28 +1,26 @@
 {
   "name": "wp-messenger-og",
-  "version": "7.1.0",
-  "description": "WpMessenger OG \u2014 full WhatsApp Web Management Panel (QR/Pair Code connect, contacts, bulk messaging, history, realtime progress). Production-ready: Railway/VPS/Docker.",
-  "main": "index.js",
+  "version": "8.0.0",
+  "private": true,
+  "description": "WpMessenger OG — Next.js WhatsApp Web Management Panel (App Router) + persistent WhatsApp worker. Deploys on Vercel/Netlify (frontend+API) with the worker on Railway/VPS/Docker.",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "node scripts/start.js",
+    "migrate": "node scripts/migrate.js",
     "test": "node --test",
-    "check": "node --check index.js",
-    "migrate": "node db/migrate.js",
-    "build": "node scripts/build-config.js"
+    "check": "node --check next.config.mjs && node scripts/migrate.js --check",
+    "worker:install": "npm --prefix worker install",
+    "worker:start": "node worker/server.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "better-sqlite3": "^11.10.0",
-    "express": "4.22.2",
-    "fs-extra": "11.3.1",
-    "multer": "^2.2.0",
-    "node-cache": "5.1.2",
-    "pino": "8.21.0",
-    "qrcode": "1.5.4",
-    "ws": "^8.18.2"
+    "next": "^15.4.0",
+    "pg": "^8.14.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "engines": {
-    "node": ">=18.0.0 <23.0.0"
+    "node": ">=20 <23"
   }
 }

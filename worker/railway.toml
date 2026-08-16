@@ -1,0 +1,5 @@
+# Railway — worker service (rootDirectory: worker)
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/api/health"
+restartPolicyType = "always"

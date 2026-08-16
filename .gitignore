@@ -1,34 +1,33 @@
 # Dependencies
 node_modules/
+worker/node_modules/
+
+# Next.js build output
+.next/
+out/
 
 # Runtime data — şəxsi məlumatlar (kontaktlar, sessionlar, DB)
 data/
 sessions/
+worker/data/
+worker/sessions/
 temp/
 tmp/
-media_cache/
 
 # Environment & secrets
 .env
 .env.local
 .env.production
+.env.*.local
+!.env.example
+worker/.env
 token.txt
 
 # Logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
 # Editor
 .idea/
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
 .DS_Store
-
-# Generated frontend deploy config (created by `npm run build` or served dynamically)
-frontend/js/config.generated.js
