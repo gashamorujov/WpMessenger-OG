@@ -45,8 +45,10 @@ npm start
 
 Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair Code.
 
-> `ADMIN_PASSWORD` is required on first login. Missing env vars never crash
-> the app — they produce clear, managed error messages.
+> First login uses **`gasham` / `gasham1006`** by default (configurable via
+> `ADMIN_USERNAME` / `ADMIN_PASSWORD`). Change the credentials right after
+> first login from **Settings → Təhlükəsizlik** — changing them invalidates
+> all active sessions and requires re-login.
 
 ## Deploy matrix
 
@@ -67,8 +69,8 @@ Open http://localhost:3000 → login → **WhatsApp Qoşul** → QR Code or Pair
 3. Set env vars:
 
 ```bash
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=<strong-password>
+ADMIN_USERNAME=gasham
+ADMIN_PASSWORD=gasham1006   # change after first login from the admin panel
 DATABASE_URL=postgresql://user:pass@host:5432/wpm   # production DB
 WORKER_API_URL=https://your-worker.up.railway.app    # worker public URL
 WORKER_API_TOKEN=<long-random-secret>                # SAME on web + worker
@@ -95,7 +97,7 @@ URLs are auto-derived from platform env vars (`RAILWAY_PUBLIC_DOMAIN`,
 | Variable | Where | Description |
 | --- | --- | --- |
 | `PORT` | web | HTTP port (default 3000; platform `PORT` used automatically) |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (required) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | web | First-login credentials (default `gasham` / `gasham1006`) |
 | `WORKER_API_URL` | web | Worker public API URL (`https://worker.up.railway.app`) |
 | `WORKER_API_TOKEN` | web + worker | Shared secret — **must match** |
 | `WORKER_WS_URL` | web | Realtime WS URL (auto-derived `wss://` from API URL) |

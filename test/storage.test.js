@@ -80,9 +80,25 @@ test('sessions + settings', async () => {
   assert.equal(effective.maxRetries, 5);
 });
 
-test('admin bootstrap fails cleanly without ADMIN_PASSWORD', async () => {
+test('admin bootstrap creates default credentials; changeCredentials invalidates sessions', async () => {
   const res = await usersRepo.ensureAdmin();
-  assert.equal(res.created, false);
-  assert.match(res.reason, /ADMIN_PASSWORD/);
-  assert.equal(await usersRepo.verify('admin', 'x'), false);
+  assert.equal(res.created, true);
+  assert.equal(res.username, 'gasham');
+  assert.equal(await usersRepo.verify('gasham', 'gasham1006'), true);
+  assert.equal(await usersRepo.verify('gasham', 'wrong'), false);
+
+  // Failed change does not touch sessions or credentials
+  const token = await sessionsRepo.create('test-agent', '127.0.0.1');
+  assert.equal(await sessionsRepo.isValid(token), true);
+  const bad = await usersRepo.changeCredentials('wrong-pass', 'gasham2', 'newpass123');
+  assert.equal(bad.ok, false);
+  assert.equal(await sessionsRepo.isValid(token), true);
+
+  // Successful change updates credentials and destroys all sessions
+  const ok = await usersRepo.changeCredentials('gasham1006', 'gasham2', 'newpass123');
+  assert.equal(ok.ok, true);
+  assert.equal(ok.username, 'gasham2');
+  assert.equal(await sessionsRepo.isValid(token), false);
+  assert.equal(await usersRepo.verify('gasham', 'gasham1006'), false);
+  assert.equal(await usersRepo.verify('gasham2', 'newpass123'), true);
 });

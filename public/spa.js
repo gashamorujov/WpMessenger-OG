@@ -269,7 +269,7 @@
       <div class="shell">
         <aside class="sidebar">
           <div class="brand">
-            <div class="logo">💬</div>
+            <img class="logo" src="/icon.png" alt="WpMessenger OG" />
             <div><b>WpMessenger OG</b><small>WhatsApp Panel</small></div>
           </div>
           <nav class="nav">
@@ -332,13 +332,13 @@
       $('#app').innerHTML = `
       <div class="login-wrap">
         <form class="login-card" data-form="login">
-          <div class="login-logo">💬</div>
+          <div class="login-logo"><img src="/icon.png" alt="WpMessenger OG" /></div>
           <h1>WpMessenger OG</h1>
           <p class="sub">WhatsApp Web Management Panel</p>
           <div class="field"><label>İstifadəçi adı</label><input class="input" name="username" autocomplete="username" required /></div>
           <div class="field"><label>Şifrə</label><input class="input" type="password" name="password" autocomplete="current-password" required /></div>
           <button class="btn btn-primary btn-block btn-xl" type="submit">Daxil ol</button>
-          <p class="muted" style="margin-top:14px;text-align:center">İlk işə salmada şifrə server loqlarında çap olunur</p>
+          <p class="muted" style="margin-top:14px;text-align:center">Defolt giriş: gasham / gasham1006 · İlk girişdən sonra Settings → Təhlükəsizlik bölməsindən dəyişin</p>
         </form>
       </div>`;
       setTimeout(() => { const i = $('.login-card input[name="username"]'); if (i) i.focus(); }, 50);
@@ -846,6 +846,19 @@
         </form>
       </div>
       <div class="card">
+        <h3>${ICONS.settings} Təhlükəsizlik — giriş məlumatları</h3>
+        <form data-form="security-save">
+          <div class="grid grid-2">
+            <div class="field"><label>Yeni istifadəçi adı</label><input class="input" name="username" value="${esc(this.state.user?.username || '')}" minlength="3" maxlength="50" autocomplete="username" required /></div>
+            <div class="field"><label>Cari şifrə</label><input class="input" type="password" name="currentPassword" autocomplete="current-password" required /></div>
+            <div class="field"><label>Yeni şifrə</label><input class="input" type="password" name="newPassword" minlength="6" autocomplete="new-password" required /></div>
+            <div class="field"><label>Yeni şifrə (təkrar)</label><input class="input" type="password" name="newPassword2" minlength="6" autocomplete="new-password" required /></div>
+          </div>
+          <p class="muted" style="margin-top:-6px;margin-bottom:12px">Şifrə dəyişdirildikdə bütün aktiv sessiyalar bağlanır və yenidən giriş tələb olunur.</p>
+          <button class="btn btn-primary" type="submit">${ICONS.check} Yadda saxla</button>
+        </form>
+      </div>
+      <div class="card">
         <h3>${ICONS.info} Sistem</h3>
         <div class="meta" style="display:flex;flex-direction:column;gap:6px;font-size:13.5px">
           <span>Versiya: <b>v${esc(st.version)}</b></span>
@@ -1105,6 +1118,23 @@
         this.toast('Kontakt yadda saxlanıldı', 'ok');
         this.fetchContactsAll().then(() => this.refreshContacts());
         this.refreshOverview(true);
+        return;
+      }
+      if (kind === 'security-save') {
+        const data = Object.fromEntries(new FormData(form));
+        if (data.newPassword !== data.newPassword2) {
+          this.toast('Yeni şifrələr uyğun gəlmir', 'err');
+          return;
+        }
+        try {
+          const res = await this.api('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ currentPassword: data.currentPassword, username: data.username, newPassword: data.newPassword }),
+          });
+          this.state.user = { username: res.username };
+          this.toast('Giriş məlumatları dəyişdirildi — yenidən daxil olun', 'ok');
+          this.sessionExpired();
+        } catch (e) { this.toast(e.message, 'err'); }
         return;
       }
       if (kind === 'settings-save') {
