@@ -1,131 +1,74 @@
 /**
- * WhatsAppManager — Baileys socket lifecycle for the persistent worker.
+ * WhatsAppManager — Baileys socket lifecycle (WpFastMesenger-v6 proven logic).
  *
- * Responsibilities:
- *  - connect via Pair Code or QR
- *  - persist sessions (sessions/sessions.json + Baileys auth state)
- *  - auto-reconnect with exponential backoff + watchdog
- *  - emit realtime events (status / qr / pair / error / connected) that the
- *    WebSocket hub forwards to the frontend
+ * Uses useMultiFileAuthState (file-based) — the same approach that powers
+ * the production WhatsApp bot in gashamorujov/WpFastMesenger-v6.
+ * No Firebase for WhatsApp auth state — files in worker/sessions/.
  *
- * The worker runs as a long-lived process (Railway/VPS/Docker). The Next.js
- * web app never opens WhatsApp connections — it only proxies commands here.
+ * The Next.js web app never opens WhatsApp connections. It proxies commands
+ * here over HTTPS with a shared bearer token.
  */
 const {
   default: makeWASocket,
+  useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  initAuthCreds,
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const NodeCache = require('node-cache');
 const QRCode = require('qrcode');
+const fs = require('fs-extra');
+const path = require('path');
 const { EventEmitter } = require('events');
 const config = require('./lib/config');
-const fb = require('../lib/firebase');
 const { sleep } = require('./lib/myfunc');
 const { makeLogger } = require('./lib/logger');
 
 const LOG = makeLogger('WA');
 
-const SESSIONS_PATH = 'wpm/wa/sessions';
-const AUTH_STATE_PATH = 'wpm/wa/state';
+// ─── Sessions persistence (file-based, same as WpFastMesenger-v6) ───
+
+const SESSIONS_DIR = path.join(__dirname, 'sessions');
+const SESSION_DATA_FILE = path.join(SESSIONS_DIR, 'sessions.json');
+
+fs.ensureDirSync(SESSIONS_DIR);
 
 let sessionsData = {};
-let sessionsLoaded = false;
-let sessionsSaveTimer = null;
-
-/** Load persisted session metadata from Firebase RTDB (called at boot). */
-async function init() {
-  if (sessionsLoaded) return;
-  sessionsLoaded = true;
-  try {
-    sessionsData = (await fb.get(SESSIONS_PATH)) || {};
-  } catch (e) {
-    LOG.error('loadSessionsData:', e.message);
-    sessionsData = {};
+try {
+  if (fs.existsSync(SESSION_DATA_FILE)) {
+    sessionsData = JSON.parse(fs.readFileSync(SESSION_DATA_FILE, 'utf-8'));
   }
-}
+} catch { sessionsData = {}; }
 
+let sessionsSaveTimer = null;
 function saveSessionsData() {
   clearTimeout(sessionsSaveTimer);
   sessionsSaveTimer = setTimeout(() => {
     sessionsSaveTimer = null;
-    fb.set(SESSIONS_PATH, sessionsData).catch((e) => LOG.error('saveSessionsData:', e.message));
+    try { fs.writeFileSync(SESSION_DATA_FILE, JSON.stringify(sessionsData, null, 2)); }
+    catch (e) { LOG.error('saveSessionsData:', e.message); }
   }, 400);
 }
 
-/**
- * Firebase-backed Baileys auth state (creds + signal keys).
- * Persists under wpm/wa/state/{phone} with debounced writes — no local files.
- */
-async function useFirebaseAuthState(phone) {
-  const base = `${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`;
-  const data = await fb.get(base).catch(() => null);
-  let creds = (data && data.creds) || {};
-  // Baileys requires a full key set (signedIdentityKey, registrationId, ...).
-  // Fresh sessions get initAuthCreds(); restored sessions keep their creds.
-  if (!creds.signedIdentityKey || !creds.registrationId) creds = initAuthCreds();
-  const keys = (data && data.keys) || {};
-  let saveTimer = null;
-  const scheduleSave = () => {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      saveTimer = null;
-      fb.set(base, { creds, keys }).catch((e) => LOG.warn(`auth save +${phone}:`, e.message));
-    }, 900);
-  };
-  return {
-    state: {
-      creds,
-      keys: {
-        async get(type, ids) {
-          const out = {};
-          for (const id of ids || []) {
-            const v = keys[type + ':' + id];
-            if (v !== undefined) out[id] = v;
-          }
-          return out;
-        },
-        async set(data) {
-          for (const [cat, items] of Object.entries(data || {})) {
-            for (const [id, value] of Object.entries(items || {})) {
-              if (value === null) delete keys[cat + ':' + id];
-              else keys[cat + ':' + id] = value;
-            }
-          }
-          scheduleSave();
-        },
-      },
-    },
-    saveCreds: scheduleSave,
-  };
-}
+// ─── Event system ───
 
 const emitter = new EventEmitter();
 emitter.setMaxListeners(50);
 
 const activeConnections = {};
 
-/** Latest QR / Pair code per phone (polling fallback for the frontend). */
 const pendingQr = new Map();
 const pendingPair = new Map();
 
 const connectedHooks = [];
 
-/** Register a callback fired whenever any WhatsApp socket connects. */
-function onConnected(cb) {
-  if (typeof cb === 'function') connectedHooks.push(cb);
-}
+function onConnected(cb) { if (typeof cb === 'function') connectedHooks.push(cb); }
 
 function fireConnectedHooks(phone, sock) {
   for (const cb of connectedHooks) {
-    try {
-      Promise.resolve(cb(phone, sock)).catch((e) => LOG.error('Connected hook error:', e.message));
-    } catch (e) {
-      LOG.error('Connected hook error:', e.message);
-    }
+    try { Promise.resolve(cb(phone, sock)).catch((e) => LOG.error('Connected hook error:', e.message)); }
+    catch (e) { LOG.error('Connected hook error:', e.message); }
   }
 }
 
@@ -141,15 +84,15 @@ function setStatus(phone, session) {
   emit('status', { phone, session: { ...sessionsData[phone] } });
 }
 
-/**
- * Connect (or pair) a phone number.
- * @param {string} phone
- * @param {'pair'|'qr'} method
- * @returns {Promise<{ok: boolean, error?: string}>}
- */
+const sessDir = (p) => path.join(SESSIONS_DIR, p);
+
+/** No-op: sessions are loaded from disk at module load time. */
+async function init() {}
+
+// ─── Connect (Pair or QR) ───
+
 async function connectWithPhone(phone, method = 'pair') {
   phone = fmtPhone(phone);
-  // QR linking does not require a phone number — allow a fixed session key.
   if (method === 'qr' && !phone) phone = 'main';
   if (!phone || (phone !== 'main' && (phone.length < 7 || phone.length > 15))) {
     return { ok: false, error: 'Yanlış nömrə formatı. Düzgün format: 994501234567' };
@@ -164,7 +107,10 @@ async function connectWithPhone(phone, method = 'pair') {
   setStatus(phone, { phone, status: 'connecting', method, connectedAt: null, name: '', jid: '' });
 
   try {
-    const { state, saveCreds } = await useFirebaseAuthState(phone);
+    // File-based auth state — proven in WpFastMesenger-v6 production
+    const dir = sessDir(phone);
+    fs.ensureDirSync(dir);
+    const { state, saveCreds } = await useMultiFileAuthState(dir);
     const { version } = await fetchLatestBaileysVersion();
     const msgCache = new NodeCache();
 
@@ -190,19 +136,17 @@ async function connectWithPhone(phone, method = 'pair') {
     let connOpen = false;
     let reconnectAttempts = 0;
     const MAX_RECONNECT = 10;
-    const reconnectTimers = {};
 
     sock.ev.on('connection.update', async (s) => {
       const { connection, lastDisconnect, qr } = s;
 
+      // QR Code received
       if (qr && !connOpen) {
         qrEmitted = true;
         pendingQr.set(phone, { qr, ts: Date.now() });
         try {
           const buf = await QRCode.toBuffer(qr, { type: 'png', margin: 2, scale: 8 });
           const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
-          // Store the renderable data URL so polling (/api/qr/:key) and the
-          // WebSocket push deliver the exact same image to the UI.
           pendingQr.set(phone, { qr: dataUrl, ts: Date.now() });
           emit('qr', { phone, qr: dataUrl });
         } catch (err) {
@@ -210,6 +154,7 @@ async function connectWithPhone(phone, method = 'pair') {
           emit('error', { phone, message: 'QR yaradılması xətası: ' + err.message });
         }
 
+        // If this is a Pair Code request, wait for socket to be ready then request pair code
         if (method === 'pair' && !pairRequested) {
           pairRequested = true;
           LOG.info(`Socket ready, requesting pairing code for ${phone}`);
@@ -219,6 +164,7 @@ async function connectWithPhone(phone, method = 'pair') {
         }
       }
 
+      // Connected
       if (connection === 'open') {
         connOpen = true;
         reconnectAttempts = 0;
@@ -239,6 +185,7 @@ async function connectWithPhone(phone, method = 'pair') {
         fireConnectedHooks(phone, sock);
       }
 
+      // Disconnected
       if (connection === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
         const errMsg = lastDisconnect?.error?.message || '';
@@ -248,9 +195,9 @@ async function connectWithPhone(phone, method = 'pair') {
         if (code === DisconnectReason.loggedOut || code === 401) {
           pendingQr.delete(phone);
           pendingPair.delete(phone);
+          try { fs.removeSync(sessDir(phone)); } catch {}
           delete sessionsData[phone];
           saveSessionsData();
-          await fb.remove(`${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`).catch(() => {});
           emit('status', { phone, session: { phone, status: 'logged_out' } });
           return;
         }
@@ -264,13 +211,10 @@ async function connectWithPhone(phone, method = 'pair') {
           const delay = Math.min(3000 * Math.pow(2, reconnectAttempts), 60000);
           reconnectAttempts++;
           LOG.info(`[AutoReconnect] +${phone} attempt ${reconnectAttempts}/${MAX_RECONNECT} in ${delay / 1000}s`);
-          reconnectTimers[phone] = setTimeout(async () => {
+          setTimeout(async () => {
             if (!activeConnections[phone]) {
-              try {
-                await connectWithPhone(phone, method);
-              } catch (e) {
-                LOG.error(`[AutoReconnect] +${phone} reconnect failed:`, e.message);
-              }
+              try { await connectWithPhone(phone, method); }
+              catch (e) { LOG.error(`[AutoReconnect] +${phone} reconnect failed:`, e.message); }
             }
           }, delay);
         } else {
@@ -285,6 +229,7 @@ async function connectWithPhone(phone, method = 'pair') {
     sock.ev.on('creds.update', saveCreds);
     activeConnections[phone] = sock;
 
+    // QR timeout: if no QR after 30s, kill the socket
     if (method === 'qr') {
       setTimeout(() => {
         if (!connOpen && !qrEmitted) {
@@ -292,9 +237,10 @@ async function connectWithPhone(phone, method = 'pair') {
           if (activeConnections[phone]) { activeConnections[phone].end(new Error('qr timeout')); delete activeConnections[phone]; }
           if (sessionsData[phone]) sessionsData[phone].status = 'disconnected';
           saveSessionsData();
-          emit('status', { phone, session: { ...sessionsData[phone] } });
+          emit('status', { phone, session: { phone, status: 'disconnected' } });
         }
       }, 30000);
+
       setTimeout(() => {
         if (!connOpen) {
           emit('error', { phone, message: 'QR scan timeout.' });
@@ -307,13 +253,18 @@ async function connectWithPhone(phone, method = 'pair') {
         }
       }, 120000);
     }
-    return { ok: true };
+
+    return { ok: true, phone };
   } catch (err) {
-    LOG.error('Connection error +' + phone, err);
-    emit('error', { phone, message: err.message });
+    LOG.error('Connection error +' + phone, err.message);
+    if (sessionsData[phone]) sessionsData[phone].status = 'disconnected';
+    saveSessionsData();
+    emit('status', { phone, session: { phone, status: 'disconnected' } });
     return { ok: false, error: err.message };
   }
 }
+
+// ─── Pair Code with retry (proven in WpFastMesenger-v6) ───
 
 async function requestPairingCodeWithRetry(sock, phone, maxRetries = 15) {
   for (let i = 0; i < maxRetries; i++) {
@@ -350,13 +301,15 @@ async function requestPairingCodeWithRetry(sock, phone, maxRetries = 15) {
   }
 }
 
+// ─── Disconnect ───
+
 async function disconnectSession(phone) {
   phone = fmtPhone(phone);
   if (activeConnections[phone]) {
     try { activeConnections[phone].end(new Error('User logout')); } catch {}
     delete activeConnections[phone];
   }
-  await fb.remove(`${AUTH_STATE_PATH}/${encodeURIComponent(phone)}`).catch(() => {});
+  try { fs.removeSync(sessDir(phone)); } catch {}
   pendingQr.delete(phone);
   pendingPair.delete(phone);
   delete sessionsData[phone];
@@ -364,6 +317,8 @@ async function disconnectSession(phone) {
   emit('status', { phone, session: { phone, status: 'logged_out' } });
   return true;
 }
+
+// ─── Watchdog ───
 
 let watchdogStarted = false;
 function startConnectionWatchdog() {
@@ -390,42 +345,8 @@ function startConnectionWatchdog() {
   }, 120000);
 }
 
-/** Return the first connected socket (used by broadcasts). */
-function getSenderSocket() {
-  for (const [phone, session] of Object.entries(sessionsData)) {
-    if (session.status === 'connected' && activeConnections[phone]) {
-      return { sock: activeConnections[phone], phone };
-    }
-  }
-  return null;
-}
+// ─── Auto-reconnect at boot (proven in WpFastMesenger-v6) ───
 
-/** All sessions for the UI. */
-function getSessions() {
-  return Object.values(sessionsData).map((s) => ({
-    phone: s.phone,
-    status: s.status,
-    method: s.method || 'pair',
-    name: s.name || '',
-    connectedAt: s.connectedAt || null,
-  }));
-}
-
-function getPendingQr(phone) {
-  // QR sessions may use a non-numeric key ('main') — try the raw key first.
-  const key = pendingQr.has(String(phone)) ? String(phone) : fmtPhone(phone);
-  const p = pendingQr.get(key);
-  if (!p) return null;
-  return { phone: key, qr: p.qr, ts: p.ts };
-}
-
-function getPendingPair(phone) {
-  const p = pendingPair.get(fmtPhone(phone));
-  if (!p) return null;
-  return { phone: fmtPhone(phone), code: p.code, ts: p.ts };
-}
-
-/** Auto-reconnect previously stored sessions at boot. */
 async function autoReconnectAll() {
   let reconnected = 0;
   for (const [phone, session] of Object.entries(sessionsData)) {
@@ -440,8 +361,69 @@ async function autoReconnectAll() {
     }
   }
 
+  // Also scan sessions/ directory for orphaned auth files
+  try {
+    if (fs.existsSync(SESSIONS_DIR)) {
+      const dirs = fs.readdirSync(SESSIONS_DIR);
+      for (const dir of dirs) {
+        if (dir === 'sessions.json' || dir.startsWith('.')) continue;
+        const authPath = path.join(SESSIONS_DIR, dir, 'creds.json');
+        if (fs.existsSync(authPath)) {
+          const phone = dir.replace(/[^0-9]/g, '');
+          if (phone && (!sessionsData[phone] || sessionsData[phone]?.status !== 'connected')) {
+            if (!sessionsData[phone]) sessionsData[phone] = { phone, status: 'reconnecting' };
+            else sessionsData[phone].status = 'reconnecting';
+            LOG.info(`Found stored auth for ${dir}, reconnecting...`);
+            try {
+              await connectWithPhone(phone, 'pair');
+              reconnected++;
+            } catch (e) {
+              LOG.error(`Reconnect failed for ${dir}:`, e.message);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    LOG.warn('Session directory scan:', e.message);
+  }
+
   if (reconnected === 0) LOG.info('No previous WhatsApp sessions found.');
   return reconnected;
+}
+
+// ─── Helpers ───
+
+function getSenderSocket() {
+  for (const [phone, session] of Object.entries(sessionsData)) {
+    if (session.status === 'connected' && activeConnections[phone]) {
+      return { sock: activeConnections[phone], phone };
+    }
+  }
+  return null;
+}
+
+function getSessions() {
+  return Object.values(sessionsData).map((s) => ({
+    phone: s.phone,
+    status: s.status,
+    method: s.method || 'pair',
+    name: s.name || '',
+    connectedAt: s.connectedAt || null,
+  }));
+}
+
+function getPendingQr(phone) {
+  const key = pendingQr.has(String(phone)) ? String(phone) : fmtPhone(phone);
+  const p = pendingQr.get(key);
+  if (!p) return null;
+  return { phone: key, qr: p.qr, ts: p.ts };
+}
+
+function getPendingPair(phone) {
+  const p = pendingPair.get(fmtPhone(phone));
+  if (!p) return null;
+  return { phone: fmtPhone(phone), code: p.code, ts: p.ts };
 }
 
 module.exports = {

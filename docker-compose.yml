@@ -3,8 +3,8 @@
 #   docker compose up -d --build
 # Panel: http://localhost:3000
 #
-# Heç bir lokal verilənlər bazası / persistent volume tələb olunmur — bütün
-# məlumatlar Firebase Realtime Database-də saxlanılır.
+# WhatsApp auth sessions ./data/sessions/ qovluğunda saxlanılır (persistent).
+# Bütün digər məlumatlar Firebase Realtime Database-də saxlanılır.
 services:
   web:
     build: .
@@ -28,6 +28,8 @@ services:
     build: ./worker
     container_name: wp-worker
     restart: unless-stopped
+    volumes:
+      - ./data/sessions:/app/sessions
     environment:
       - PORT=3100
       - FIREBASE_DATABASE_URL=${FIREBASE_DATABASE_URL:-https://whatsbotog-default-rtdb.firebaseio.com}

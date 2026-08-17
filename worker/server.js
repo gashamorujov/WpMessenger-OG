@@ -11,6 +11,7 @@
 const http = require('http');
 const express = require('express');
 const fs = require('fs-extra');
+const path = require('path');
 const config = require('./lib/config');
 const { makeLogger } = require('./lib/logger');
 const appSettings = require('./lib/appSettings');

@@ -22,11 +22,14 @@ Mesaj/Media göndər → Real-time progress → Tarixçə
   jobs and pushes realtime events to the browser.
 - **Storage + Realtime — Firebase Realtime Database (single source of truth)**:
   - `wpm/users`, `wpm/sessions`, `wpm/contacts`, `wpm/jobs`, `wpm/settings`,
-    `wpm/wa/*` (WhatsApp auth state) — every piece of app data.
+    `wpm/wa/recentSends` (duplicate guard) — app data.
+  - **WhatsApp auth sessions** are stored on disk in `worker/sessions/` using
+    Baileys `useMultiFileAuthState` (proven in WpFastMesenger-v6).
   - `wpm/events` — realtime event feed the SPA listens to with the
     Firebase JS SDK (no polling, no WebSocket infrastructure needed).
-  - **No local database, no `./data` folder, no PostgreSQL, no persistent
-    volume required** — deploys on serverless and any platform with network.
+  - **No local database, no `./data` folder, no PostgreSQL required** —
+    deploys on serverless and any platform with network.
+  - WhatsApp sessions need a persistent volume for `worker/sessions/`.
 
 ```
 Browser ── HTTPS /api/* ──► Next.js (Vercel/Netlify) ── bearer token ──► Worker API ──► WhatsApp

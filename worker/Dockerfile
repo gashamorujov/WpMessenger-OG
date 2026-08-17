@@ -7,6 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 make g+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY . .
+
+# WhatsApp auth sessions are stored on disk (Baileys useMultiFileAuthState).
+# Mount this volume to persist sessions across container restarts.
+VOLUME /app/sessions
+
 ENV NODE_ENV=production
 EXPOSE 3100
 CMD ["node", "server.js"]
