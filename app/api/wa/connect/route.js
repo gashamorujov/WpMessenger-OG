@@ -12,7 +12,7 @@ export async function POST(request) {
   let body;
   try { body = await request.json(); } catch { return fail('Yanlış sorğu formatı'); }
   const isQr = body.method === 'qr';
-  if (isQr && !body.phone) {
+  if (isQr && (!body.phone || body.phone === 'main')) {
     try {
       const d = await waClient.connect({ phone: 'main', method: 'qr' });
       return json({ ok: true, phone: d.phone || 'main' });
