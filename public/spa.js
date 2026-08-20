@@ -88,7 +88,7 @@
       contactsAll: [],
       jobs: {},           // id -> job snapshot
       jobList: { items: [], total: 0, page: 1, pages: 1 },
-      history: { items: [], total: 0, page: 1, pages: 1, state: 'all' },
+      history: { items: [], total: 0, page: 1, pages: 1, state: 'all', selectedIds: new Set() },
       send: { step: 1, mode: 'single', phone: '', numbers: '', contactIds: [], text: '', caption: '', file: null, messageType: '', jobId: null },
       connect: { tab: 'qr', pending: null, qr: null, pair: null },
       modal: null,
@@ -529,7 +529,7 @@
               ${this.state.connect.qr ? `<div style="margin-top:18px"><img src="${this.state.connect.qr}" alt="WhatsApp QR" /><p class="hint">QR kodu WhatsApp ilə skan edin — qoşulma avtomatik təsdiqlənəcək</p></div>` : ''}
             </div>` : `
             <div>
-              <div class="field"><label>Telefon nömrəsi (WhatsApp hesabı)</label><input class="input" id="pair-phone" placeholder="0503482680" /></div>
+              <div class="field"><label>Telefon nömrəsi (WhatsApp hesabı)</label><input class="input" id="pair-phone" placeholder="0501234567 / +994501234567 / +447911123456" /></div>
               ${this.state.connect.pair ? `
                 <div class="pair-code">${esc(this.state.connect.pair)}</div>
                 <p class="hint" style="text-align:center;margin-top:10px">WhatsApp → Linked Devices → Link with phone number → kodu daxil edin</p>
@@ -649,7 +649,7 @@
           ${this.radioCard('all', ICONS.globe, 'Bütün kontaktlar', `Hamısı (${c.length})`, s)}
         </div>
 
-        <div class="field hidden" id="f-single"><label>Telefon nömrəsi</label><input class="input" id="send-phone" placeholder="0503482690" value="${esc(s.phone)}" /></div>
+        <div class="field hidden" id="f-single"><label>Telefon nömrəsi</label><input class="input" id="send-phone" placeholder="0501234567 / +447911123456" value="${esc(s.phone)}" /></div>
 
         <div class="field hidden" id="f-list"><label>Nömrələr (hər sətirə bir — vergül/boşluq da olar)</label><textarea class="textarea" id="send-numbers" placeholder="0503482690
 0503482691
@@ -860,10 +860,14 @@
 
     renderHistory() {
       const h = this.state.history;
+      const sel = h.selectedIds;
+      const allSelected = h.items.length > 0 && h.items.every((j) => sel.has(j.id));
       const rows = h.items.map((j) => {
         const typeLabel = { text: 'Mətn', image: 'Şəkil', video: 'Video', audio: 'Audio', voice: 'Səs', document: 'Sənəd', sticker: 'Stiker', gif: 'GIF' }[j.type] || 'Mesaj';
         const msgPreview = j.payload?.text ? (j.payload.text.length > 60 ? j.payload.text.slice(0, 60) + '…' : j.payload.text) : (j.payload?.fileName || 'Media');
-        return `<tr>
+        const checked = sel.has(j.id) ? 'checked' : '';
+        return `<tr class="${sel.has(j.id) ? 'row-sel' : ''}">
+          <td><input type="checkbox" class="hist-cb" data-id="${j.id}" ${checked} style="width:16px;height:16px;accent-color:var(--accent)" /></td>
           <td>${fmtDate(j.createdAt)}</td>
           <td>${typeLabel} ${esc(j.total)}</td>
           <td><span class="ok">${j.successCount}</span></td>
@@ -871,9 +875,14 @@
           <td><span class="skp">${j.skipCount}</span></td>
           <td><span class="badge ${stateBadge(j.state)}">${esc(stateLabel[j.state] || j.state)}</span></td>
           <td class="mono" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(msgPreview)}</td>
-          <td><button class="btn btn-ghost btn-sm" data-action="job-detail" data-id="${j.id}">${ICONS.info} Ətraflı bax</button></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" data-action="job-detail" data-id="${j.id}">${ICONS.info} Ətraflı</button>
+            <button class="btn btn-danger btn-sm" data-action="hist-delete-single" data-id="${j.id}" title="Sil">${ICONS.trash}</button>
+          </td>
         </tr>`;
-      }).join('') || '<tr><td colspan="8"><div class="empty">Tarixçə boşdur</div></td></tr>';
+      }).join('') || '<tr><td colspan="9"><div class="empty">Tarixçə boşdur</div></td></tr>';
+
+      const delBtnHtml = sel.size > 0 ? `<button class="btn btn-danger btn-sm" data-action="hist-delete-selected">${ICONS.trash} Seçilənləri sil (${sel.size})</button>` : '';
 
       $('#view').innerHTML = `
       <div class="section-head">
@@ -885,11 +894,12 @@
             <option value="interrupted" ${h.state === 'interrupted' ? 'selected' : ''}>Kəsilən</option>
           </select>
           <button class="btn btn-ghost" data-action="history-filter">${ICONS.refresh} Tətbiq et</button>
+          ${delBtnHtml}
         </div>
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Tarix</th><th>Alıcı</th><th>Uğurlu</th><th>Xəta</th><th>Atlanılan</th><th>Status</th><th>Mesaj</th><th></th></tr></thead>
+          <thead><tr><th style="width:36px"><input type="checkbox" id="hist-check-all" ${allSelected ? 'checked' : ''} style="width:16px;height:16px;accent-color:var(--accent)" /></th><th>Tarix</th><th>Alıcı</th><th>Uğurlu</th><th>Xəta</th><th>Atlanılan</th><th>Status</th><th>Mesaj</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -1218,6 +1228,29 @@
         case 'job-detail': this.jobDetail(el.dataset.id); break;
         case 'history-filter': this.state.history.state = $('#hist-state')?.value || 'all'; this.state.history.page = 1; this.loadHistory(); break;
         case 'history-page': this.state.history.page = Number(el.dataset.page); this.loadHistory(); break;
+        case 'hist-delete-single': {
+          const id = el.dataset.id;
+          this.confirmModal('Tarixçəni sil', 'Bu qeyd silinsin?', 'hist-delete-confirm', { ids: [id] });
+          break;
+        }
+        case 'hist-delete-selected': {
+          const ids = [...this.state.history.selectedIds];
+          if (ids.length === 0) break;
+          this.confirmModal('Tarixçəni sil', ids.length + ' qeyd silinsin?', 'hist-delete-confirm', { ids });
+          break;
+        }
+        case 'hist-delete-confirm': {
+          const ids = this.state.modal?.params?.ids || [];
+          if (ids.length === 0) { this.closeModal(); break; }
+          try {
+            await this.api('/history/delete', { method: 'POST', body: JSON.stringify({ ids }) });
+            this.state.history.selectedIds = new Set();
+            this.closeModal();
+            this.toast(ids.length + ' qeyd silindi', 'ok');
+            this.loadHistory();
+          } catch (e) { this.toast(e.message, 'err'); this.closeModal(); }
+          break;
+        }
         case 'close-modal': this.closeModal(); break;
         case 'confirm-yes':
           if (this.state.modal?.action) this.handleAction(this.state.modal.action, { dataset: {} });

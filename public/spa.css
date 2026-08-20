@@ -356,3 +356,7 @@ kbd { background: var(--bg-3); border: 1px solid var(--border); border-radius: 5
   .stat { padding: 13px; }
   .stat .val { font-size: 20px; }
 }
+
+/* Selected row in history */
+.row-sel { background: var(--accent-soft) !important; }
+.row-sel:hover { background: var(--accent-soft) !important; }
